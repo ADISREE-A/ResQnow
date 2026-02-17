@@ -3,6 +3,7 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 require("dotenv").config();
+const locationRoutes = require("./routes/locationRoutes");
 
 const emergencyRoutes = require("./routes/emergencyRoutes");
 
@@ -11,6 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/emergency", emergencyRoutes);
+app.use("/api/location", locationRoutes);
 
 const server = http.createServer(app);
 
