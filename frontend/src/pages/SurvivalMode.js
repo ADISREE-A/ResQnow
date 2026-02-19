@@ -1,30 +1,54 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import LocationTracker from "../components/LocationTracker";
 import LiveMap from "../components/LiveMap";
-import { speak } from "../utils/voice";
 import VoiceGuide from "../components/VoiceGuide";
 import EmergencyChat from "../components/EmergencyChat";
+import { speak } from "../utils/voice";
+import io from "socket.io-client";
+
+const socket = io("http://localhost:5000");
 
 const SurvivalMode = () => {
 
-  // ✅ Panic Handler goes here
+  const [username] = useState("Adi"); // You can later make dynamic
+  const [location, setLocation] = useState(null);
+
+  // ✅ Join emergency when page loads
+  useEffect(() => {
+    socket.emit("joinEmergency", username);
+
+    // Get current location
+    navigator.geolocation.getCurrentPosition((position) => {
+      const currentLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      };
+      setLocation(currentLocation);
+    });
+  }, [username]);
+
+  // ✅ Panic Handler
   const handlePanic = () => {
+
     speak("Emergency alert sent. Stay calm. Sharing your live location now.");
 
-    // If you already have backend panic API,
-    // call it here using fetch or axios
-    console.log("Panic button clicked");
+    socket.emit("panicActivated", {
+      username: username,
+      location: location
+    });
+
+    console.log("🚨 Panic activated");
   };
 
   return (
     <div style={{
       backgroundColor: "#000",
       color: "white",
-      height: "100vh",
+      minHeight: "100vh",
       textAlign: "center",
-      paddingTop: "100px"
+      paddingTop: "80px"
     }}>
-      
+
       <h1>🚨 Survival Mode Activated</h1>
       <p>Stay Calm. Help is being notified.</p>
 
