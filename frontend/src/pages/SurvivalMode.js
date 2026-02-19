@@ -1,5 +1,6 @@
 import React from "react";
 import LocationTracker from "../components/LocationTracker";
+import LiveMap from "../components/LiveMap";
 
 const SurvivalMode = () => {
   return (
@@ -14,6 +15,7 @@ const SurvivalMode = () => {
       <p>Stay Calm. Help is being notified.</p>
 
       <LocationTracker />
+      <LiveMap />
     </div>
   );
 };
