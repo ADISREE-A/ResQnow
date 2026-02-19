@@ -3,6 +3,7 @@ import LocationTracker from "../components/LocationTracker";
 import LiveMap from "../components/LiveMap";
 import { speak } from "../utils/voice";
 import VoiceGuide from "../components/VoiceGuide";
+import EmergencyChat from "../components/EmergencyChat";
 
 const SurvivalMode = () => {
 
@@ -47,6 +48,7 @@ const SurvivalMode = () => {
       <LocationTracker />
       <VoiceGuide message="Stay calm. Help is on the way. Move to a safe and open area." />
       <LiveMap />
+      <EmergencyChat />
 
     </div>
   );
