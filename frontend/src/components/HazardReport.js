@@ -2,9 +2,9 @@ import React, { useState } from "react";
 
 const HazardReport = () => {
 
-  const [username, setUsername] = useState("Adi"); // Later make dynamic
-  const [type, setType] = useState("Fire");
-  const [severity, setSeverity] = useState("Medium");
+  const [username, setUsername] = useState("Enter Username"); // Later make dynamic
+  const [type, setType] = useState("--select--");
+  const [severity, setSeverity] = useState("--select--");
   const [description, setDescription] = useState("");
 
   const reportHazard = () => {
@@ -78,7 +78,8 @@ const HazardReport = () => {
         value={type}
         onChange={(e) => setType(e.target.value)}
         style={inputStyle}
-      >
+      > 
+        <option>--select--</option>
         <option>Fire</option>
         <option>Flood</option>
         <option>Accident</option>
@@ -99,6 +100,7 @@ const HazardReport = () => {
         onChange={(e) => setSeverity(e.target.value)}
         style={inputStyle}
       >
+        <option>--select--</option>
         <option>Low</option>
         <option>Medium</option>
         <option>High</option>

@@ -37,14 +37,15 @@ const SurvivalMode = () => {
         {/* RIGHT SIDE */}
         <div style={styles.rightPanel}>
           <EmergencyChat />
+          
           <HazardReport />
         </div>
 
       </div>
 
       <LocationTracker />
-      <VoiceGuide message="Stay calm. Help is on the way. Move to a safe and open area." />
 
+      <VoiceGuide message="Stay calm. Help is on the way. Move to a safe and open area." />
     </div>
   );
 };
