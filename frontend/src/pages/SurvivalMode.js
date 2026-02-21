@@ -5,6 +5,7 @@ import VoiceGuide from "../components/VoiceGuide";
 import EmergencyChat from "../components/EmergencyChat";
 import { speak } from "../utils/voice";
 import io from "socket.io-client";
+import HazardReport from "../components/HazardReport"; 
 
 const socket = io("http://localhost:5000");
 
@@ -72,6 +73,7 @@ const SurvivalMode = () => {
       <LocationTracker />
       <VoiceGuide message="Stay calm. Help is on the way. Move to a safe and open area." />
       <LiveMap />
+      <HazardReport />
       <EmergencyChat />
 
     </div>
