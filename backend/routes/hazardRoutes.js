@@ -1,16 +1,15 @@
 const express = require("express");
 const router = express.Router();
-const { saveHazard } = require("../models/HazardModel");
+const { saveHazard, getAllHazards } = require("../models/HazardModel");
 
+// POST hazard
 router.post("/report", (req, res) => {
-  const { type, description, location } = req.body;
-
-  if (!type || !location) {
-    return res.status(400).json({ message: "Missing required fields" });
-  }
+  const { username, type, severity, description, location } = req.body;
 
   const hazardData = {
+    username,
     type,
+    severity,
     description,
     latitude: location.lat,
     longitude: location.lng
@@ -19,10 +18,18 @@ router.post("/report", (req, res) => {
   saveHazard(hazardData, (err) => {
     if (err) {
       console.log("DB Error:", err);
-      return res.status(500).json({ message: "Database error" });
+      return res.status(500).json({ error: "Failed to save hazard" });
     }
 
-    res.status(200).json({ message: "Hazard reported successfully" });
+    res.json({ message: "Hazard reported successfully" });
+  });
+});
+
+// GET history
+router.get("/all", (req, res) => {
+  getAllHazards((err, results) => {
+    if (err) return res.status(500).json(err);
+    res.json(results);
   });
 });
 

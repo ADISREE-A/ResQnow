@@ -1,14 +1,29 @@
 const db = require("../config/db");
 
-const saveHazard = (hazardData, callback) => {
-  const { type, description, latitude, longitude } = hazardData;
-
+const saveHazard = (hazard, callback) => {
   const sql = `
-    INSERT INTO hazards (type, description, latitude, longitude)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO hazards 
+    (username, type, severity, description, latitude, longitude, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(sql, [type, description, latitude, longitude], callback);
+  db.query(
+    sql,
+    [
+      hazard.username,
+      hazard.type,
+      hazard.severity,
+      hazard.description,
+      hazard.latitude,
+      hazard.longitude,
+      "Open"
+    ],
+    callback
+  );
 };
 
-module.exports = { saveHazard };
+const getAllHazards = (callback) => {
+  db.query("SELECT * FROM hazards ORDER BY created_at DESC", callback);
+};
+
+module.exports = { saveHazard, getAllHazards };

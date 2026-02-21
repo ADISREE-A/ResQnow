@@ -1,83 +1,92 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import LocationTracker from "../components/LocationTracker";
 import LiveMap from "../components/LiveMap";
 import VoiceGuide from "../components/VoiceGuide";
 import EmergencyChat from "../components/EmergencyChat";
+import HazardReport from "../components/HazardReport";
 import { speak } from "../utils/voice";
-import io from "socket.io-client";
-import HazardReport from "../components/HazardReport"; 
-
-const socket = io("http://localhost:5000");
 
 const SurvivalMode = () => {
 
-  const [username] = useState("Adi"); // You can later make dynamic
-  const [location, setLocation] = useState(null);
-
-  // ✅ Join emergency when page loads
-  useEffect(() => {
-    socket.emit("joinEmergency", username);
-
-    // Get current location
-    navigator.geolocation.getCurrentPosition((position) => {
-      const currentLocation = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude
-      };
-      setLocation(currentLocation);
-    });
-  }, [username]);
-
-  // ✅ Panic Handler
   const handlePanic = () => {
-
     speak("Emergency alert sent. Stay calm. Sharing your live location now.");
-
-    socket.emit("panicActivated", {
-      username: username,
-      location: location
-    });
-
-    console.log("🚨 Panic activated");
+    console.log("Panic button clicked");
   };
 
   return (
-    <div style={{
-      backgroundColor: "#000",
-      color: "white",
-      minHeight: "100vh",
-      textAlign: "center",
-      paddingTop: "80px"
-    }}>
+    <div style={styles.container}>
 
-      <h1>🚨 Survival Mode Activated</h1>
-      <p>Stay Calm. Help is being notified.</p>
+      {/* 🔥 HEADER */}
+      <div style={styles.header}>
+        <h1>🚨 Survival Mode Activated</h1>
+        <p>Stay Calm. Help is being notified.</p>
 
-      {/* ✅ Panic Button */}
-      <button
-        onClick={handlePanic}
-        style={{
-          padding: "15px 30px",
-          fontSize: "18px",
-          backgroundColor: "red",
-          color: "white",
-          border: "none",
-          borderRadius: "10px",
-          cursor: "pointer",
-          marginBottom: "20px"
-        }}
-      >
-        🚨 PANIC
-      </button>
+        <button onClick={handlePanic} style={styles.panicBtn}>
+          🚨 PANIC
+        </button>
+      </div>
+
+      {/* 🔥 MAIN CONTENT */}
+      <div style={styles.mainContent}>
+
+        {/* LEFT SIDE */}
+        <div style={styles.leftPanel}>
+          <LiveMap />
+        </div>
+
+        {/* RIGHT SIDE */}
+        <div style={styles.rightPanel}>
+          <EmergencyChat />
+          <HazardReport />
+        </div>
+
+      </div>
 
       <LocationTracker />
       <VoiceGuide message="Stay calm. Help is on the way. Move to a safe and open area." />
-      <LiveMap />
-      <HazardReport />
-      <EmergencyChat />
 
     </div>
   );
+};
+
+const styles = {
+  container: {
+    backgroundColor: "#0d0d0d",
+    color: "white",
+    minHeight: "100vh",
+    padding: "20px",
+    fontFamily: "Arial"
+  },
+  header: {
+    textAlign: "center",
+    marginBottom: "20px"
+  },
+  panicBtn: {
+    marginTop: "15px",
+    padding: "15px 40px",
+    fontSize: "18px",
+    backgroundColor: "red",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer"
+  },
+  mainContent: {
+    display: "flex",
+    gap: "20px"
+  },
+  leftPanel: {
+    flex: 2,
+    backgroundColor: "#111",
+    padding: "15px",
+    borderRadius: "10px"
+  },
+  rightPanel: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px"
+  }
 };
 
 export default SurvivalMode;
