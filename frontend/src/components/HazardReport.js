@@ -1,13 +1,29 @@
 import React, { useState } from "react";
 
-const HazardReport = () => {
+const HazardReport = ({ onHazardReported }) => {
 
-  const [username, setUsername] = useState("Enter Username"); // Later make dynamic
-  const [type, setType] = useState("--select--");
-  const [severity, setSeverity] = useState("--select--");
+  const [username, setUsername] = useState("");
+  const [type, setType] = useState("");
+  const [severity, setSeverity] = useState("");
   const [description, setDescription] = useState("");
 
   const reportHazard = () => {
+
+    // ✅ Proper Validation
+    if (!username.trim()) {
+      alert("Please enter username");
+      return;
+    }
+
+    if (!type) {
+      alert("Please select hazard type");
+      return;
+    }
+
+    if (!severity) {
+      alert("Please select severity level");
+      return;
+    }
 
     if (!description.trim()) {
       alert("Please describe the hazard");
@@ -34,16 +50,28 @@ const HazardReport = () => {
           })
         });
 
+        const data = await response.json();
+
         if (response.ok) {
-          alert("Hazard reported successfully 🚨");
+          alert(`Hazard reported 🚨\nCase ID: ${data.case_id}`);
+
+          // ✅ Send hazard info to SurvivalMode (for AI guidance)
+          if (onHazardReported) {
+            onHazardReported({ type, severity });
+          }
+
           setDescription("");
         } else {
-          alert("Failed to report hazard");
+          alert(data.error || "Failed to report hazard");
         }
+
       } catch (error) {
+        console.error(error);
         alert("Server error");
       }
 
+    }, () => {
+      alert("Location permission denied");
     });
   };
 
@@ -67,6 +95,7 @@ const HazardReport = () => {
       <label>👤 Username</label>
       <input
         type="text"
+        placeholder="Enter username"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
         style={inputStyle}
@@ -78,8 +107,8 @@ const HazardReport = () => {
         value={type}
         onChange={(e) => setType(e.target.value)}
         style={inputStyle}
-      > 
-        <option>--select--</option>
+      >
+        <option value="">Select hazard</option>
         <option>Fire</option>
         <option>Flood</option>
         <option>Accident</option>
@@ -100,7 +129,7 @@ const HazardReport = () => {
         onChange={(e) => setSeverity(e.target.value)}
         style={inputStyle}
       >
-        <option>--select--</option>
+        <option value="">Select severity</option>
         <option>Low</option>
         <option>Medium</option>
         <option>High</option>
