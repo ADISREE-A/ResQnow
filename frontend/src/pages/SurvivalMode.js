@@ -5,7 +5,7 @@ import EmergencyChat from "../components/EmergencyChat";
 import HazardReport from "../components/HazardReport";
 import HazardHistory from "../components/HazardHistory";
 import { speak } from "../utils/voice";
-
+import EvidenceRecorder from "../components/EvidenceRecorder";
 const SurvivalMode = () => {
 
   const [panicActivated, setPanicActivated] = useState(false);
@@ -120,8 +120,8 @@ const SurvivalMode = () => {
 
       </div>
 
-      <LocationTracker />
-
+      {/* <LocationTracker /> */}
+      <EvidenceRecorder />
       {/* HISTORY MODAL */}
       {showHistory && (
         <HazardHistory onClose={() => setShowHistory(false)} />

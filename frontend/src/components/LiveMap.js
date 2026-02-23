@@ -61,8 +61,8 @@ const LiveMap = () => {
               background: "white",
             }
           : {
-              width: "5cm",
-              height: "5cm",
+              width: "15cm",
+              height: "15cm",
               position: "relative",
             }
       }
