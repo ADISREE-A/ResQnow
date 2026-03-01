@@ -3,6 +3,7 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 require("dotenv").config();
+const path = require("path");
 
 const locationRoutes = require("./routes/locationRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
@@ -22,6 +23,7 @@ app.use("/api/emergency", emergencyRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/hazards", hazardRoutes);
 app.use("/api/evidence", evidenceRoutes);
+app.use("/uploads", express.static("uploads"));
 
 // 🔹 Create HTTP server
 const server = http.createServer(app);

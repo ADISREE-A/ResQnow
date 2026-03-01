@@ -7,7 +7,8 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetch("http://localhost:5000/api/hazards/all")
       .then(res => res.json())
-      .then(data => setHazards(data));
+      .then(data => setHazards(data))
+      .catch(err => console.error(err));
   }, []);
 
   const total = hazards.length;
@@ -25,17 +26,17 @@ const AdminDashboard = () => {
         marginBottom: "20px"
       }}>
 
-        <div style={{ background:"#222", padding:"20px" }}>
+        <div style={{ background:"#222", padding:"20px", borderRadius:"8px" }}>
           <h3>Total Cases</h3>
           <p>{total}</p>
         </div>
 
-        <div style={{ background:"#333", padding:"20px" }}>
+        <div style={{ background:"#333", padding:"20px", borderRadius:"8px" }}>
           <h3>Open Cases</h3>
           <p>{open}</p>
         </div>
 
-        <div style={{ background:"#5c0000", padding:"20px" }}>
+        <div style={{ background:"#5c0000", padding:"20px", borderRadius:"8px" }}>
           <h3>Critical Cases</h3>
           <p>{critical}</p>
         </div>
