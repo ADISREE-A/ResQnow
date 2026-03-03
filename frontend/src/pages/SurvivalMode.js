@@ -1,79 +1,35 @@
 import React, { useState } from "react";
-import LocationTracker from "../components/LocationTracker";
 import LiveMap from "../components/LiveMap";
 import EmergencyChat from "../components/EmergencyChat";
 import HazardReport from "../components/HazardReport";
 import HazardHistory from "../components/HazardHistory";
-import { speak } from "../utils/voice";
 import EvidenceRecorder from "../components/EvidenceRecorder";
-const SurvivalMode = () => {
+import { speak } from "../utils/voice";
 
+const SurvivalMode = () => {
   const [panicActivated, setPanicActivated] = useState(false);
-  const [currentHazard, setCurrentHazard] = useState(null);
+  const [currentHazard, setCurrentHazard] = useState("");
   const [showHistory, setShowHistory] = useState(false);
 
-  // 🚨 PANIC BUTTON FUNCTION
-  const handlePanic = () => {
-
-    const panicVoice =
-      "Emergency alert activated. Authorities have been informed. Sharing your live location now.";
-
-    speak(panicVoice);
-
-    navigator.geolocation.getCurrentPosition(async (position) => {
-
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
-
-      try {
-        await fetch("http://localhost:5000/api/emergency/create", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            latitude,
-            longitude,
-            type: currentHazard || "Panic"
-          })
-        });
-
-        console.log("Emergency stored in database");
-
-        // 🧠 Give hazard-based guidance AFTER storing
-        if (currentHazard) {
-          speak(getHazardGuidance(currentHazard));
-        } else {
-          speak("Stay calm. Help is on the way. Move to a safe and open area.");
-        }
-
-      } catch (error) {
-        console.error("Error storing emergency:", error);
-      }
-    });
-
-    setPanicActivated(true);
-  };
-
-  // 🧠 Hazard-based Guidance Logic
+  /* 🧠 Hazard-based Guidance */
   const getHazardGuidance = (type) => {
     switch (type) {
       case "Fire":
-        return "Fire detected. Move away from flames. Avoid smoke. Stay low and exit safely.";
+        return "Fire detected. Stay low to avoid smoke. Move away from flames and exit safely.";
       case "Flood":
         return "Flood detected. Move to higher ground immediately.";
       case "Accident":
-        return "Accident reported. Stay still if injured and avoid unnecessary movement.";
+        return "Accident reported. Avoid sudden movement if injured.";
       case "Earthquake":
-        return "Earthquake detected. Take cover under sturdy furniture and protect your head.";
+        return "Earthquake detected. Drop, cover and hold on.";
       case "Gas Leak":
-        return "Gas leak reported. Avoid flames. Move to open air immediately.";
+        return "Gas leak detected. Avoid flames and move to fresh air.";
       case "Medical Emergency":
-        return "Medical emergency reported. Stay calm. Help is being dispatched.";
+        return "Medical emergency reported. Stay calm. Help is coming.";
       case "Trapped":
-        return "You are trapped. Conserve energy and make noise periodically for rescuers.";
+        return "You are trapped. Conserve energy and signal for help.";
       case "Kidnapped":
-        return "Stay calm. Avoid confrontation and observe surroundings carefully.";
+        return "Stay calm. Avoid confrontation and observe surroundings.";
       case "Lost Path":
         return "You are lost. Stay where you are if safe and share your location.";
       default:
@@ -81,9 +37,58 @@ const SurvivalMode = () => {
     }
   };
 
+  /* 🎙 Panic Button Logic */
+  const handlePanic = () => {
+    setPanicActivated(true);
+
+    // Stop previous speech
+    window.speechSynthesis.cancel();
+
+    const calmMessage =
+      "Take a deep breath. Emergency alert activated. Sharing your live location.";
+
+    speak(calmMessage);
+
+    if (!navigator.geolocation) {
+      speak("Location service is not available.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+
+        try {
+          await fetch("http://localhost:5000/api/emergency/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              latitude,
+              longitude,
+              type: currentHazard || "Panic"
+            })
+          });
+
+          console.log("Emergency stored");
+
+          // Delay hazard instruction slightly
+          setTimeout(() => {
+            speak(getHazardGuidance(currentHazard));
+          }, 3000);
+
+        } catch (error) {
+          console.error("Server error:", error);
+          speak("Emergency triggered, but there was a server issue.");
+        }
+      },
+      () => speak("Unable to access location. Please enable GPS."),
+      { enableHighAccuracy: true }
+    );
+  };
+
   return (
     <div style={styles.container}>
-
       {/* HEADER */}
       <div style={styles.header}>
         <h1>🚨 Survival Mode</h1>
@@ -96,18 +101,17 @@ const SurvivalMode = () => {
 
       {/* MAIN SECTION */}
       <div style={styles.mainContent}>
-
-        {/* LEFT PANEL */}
+        {/* MAP */}
         <div style={styles.leftPanel}>
           <LiveMap />
         </div>
 
-        {/* RIGHT PANEL */}
+        {/* RIGHT SIDE */}
         <div style={styles.rightPanel}>
-
           <EmergencyChat />
 
-          <HazardReport onHazardSelect={setCurrentHazard} />
+          {/* Proper Hazard Selection */}
+          <HazardReport onHazardSelect={(hazard) => setCurrentHazard(hazard)} />
 
           <button
             onClick={() => setShowHistory(true)}
@@ -115,22 +119,20 @@ const SurvivalMode = () => {
           >
             📜 View Hazard History
           </button>
-
         </div>
-
       </div>
 
-      {/* <LocationTracker /> */}
       <EvidenceRecorder />
+
       {/* HISTORY MODAL */}
       {showHistory && (
         <HazardHistory onClose={() => setShowHistory(false)} />
       )}
-
     </div>
   );
 };
 
+/* 🎨 Styles */
 const styles = {
   container: {
     backgroundColor: "#0d0d0d",

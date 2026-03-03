@@ -5,54 +5,77 @@ const { Server } = require("socket.io");
 require("dotenv").config();
 const path = require("path");
 
+// Routes
 const locationRoutes = require("./routes/locationRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 const hazardRoutes = require("./routes/hazardRoutes");
-
 const evidenceRoutes = require("./routes/evidenceRoutes");
-// ✅ Import ONCE
+
+// Message Model
 const { saveMessage, getMessages } = require("./models/MessageModel");
 
-
-
 const app = express();
-app.use(cors());
-app.use(express.json());
 
+/* ===============================
+   🔹 MIDDLEWARE
+================================= */
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "*",
+    methods: ["GET", "POST", "PUT", "DELETE"]
+  })
+);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* ===============================
+   🔹 STATIC FILES
+================================= */
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+/* ===============================
+   🔹 API ROUTES
+================================= */
 app.use("/api/emergency", emergencyRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/hazards", hazardRoutes);
 app.use("/api/evidence", evidenceRoutes);
-app.use("/uploads", express.static("uploads"));
 
-// 🔹 Create HTTP server
+/* ===============================
+   🔹 CREATE HTTP SERVER
+================================= */
 const server = http.createServer(app);
 
-// 🔹 Setup Socket.io
+/* ===============================
+   🔹 SOCKET.IO SETUP
+================================= */
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: process.env.CLIENT_URL || "*",
     methods: ["GET", "POST"]
   }
 });
 
-
-// ===============================
-// 🔹 SOCKET CONNECTION LOGIC
-// ===============================
+/* ===============================
+   🔹 SOCKET CONNECTION LOGIC
+================================= */
 io.on("connection", (socket) => {
   console.log("User connected 🔌", socket.id);
 
-  // ✅ When user joins emergency chat
+  /* ---------------------------
+     Join Emergency Chat
+  ---------------------------- */
   socket.on("joinEmergency", (username) => {
-    socket.username = username;
-    console.log(`${username} joined emergency`);
+    socket.username = username || "Anonymous";
+    console.log(`${socket.username} joined emergency`);
   });
 
-  // ===============================
-  // 💬 NORMAL MESSAGE
-  // ===============================
+  /* ---------------------------
+     💬 NORMAL MESSAGE
+  ---------------------------- */
   socket.on("sendMessage", (data) => {
+    if (!data?.message) return;
 
     const messageData = {
       username: data.username || "Anonymous",
@@ -62,21 +85,17 @@ io.on("connection", (socket) => {
       timestamp: new Date()
     };
 
-    // Save to DB
     saveMessage(messageData, (err) => {
-      if (err) console.log("DB Save Error:", err);
+      if (err) console.error("DB Save Error:", err);
     });
 
-    // Broadcast to all users
     io.emit("receiveMessage", messageData);
   });
 
-
-  // ===============================
-  // 🚨 PANIC ALERT
-  // ===============================
+  /* ---------------------------
+     🚨 PANIC ALERT
+  ---------------------------- */
   socket.on("panicActivated", (data) => {
-
     const alertData = {
       username: data.username || "User",
       message: "🚨 PANIC ALERT ACTIVATED!",
@@ -85,41 +104,47 @@ io.on("connection", (socket) => {
       timestamp: new Date()
     };
 
-    // Save to DB
     saveMessage(alertData, (err) => {
-      if (err) console.log("DB Save Error:", err);
+      if (err) console.error("DB Save Error:", err);
     });
 
-    // Broadcast to everyone
     io.emit("receiveMessage", alertData);
   });
 
-
-  // ===============================
-  // 📜 LOAD OLD MESSAGES (NEW)
-  // ===============================
+  /* ---------------------------
+     📜 LOAD OLD MESSAGES
+  ---------------------------- */
   socket.on("loadMessages", () => {
     getMessages((err, messages) => {
       if (err) {
-        console.log("DB Fetch Error:", err);
+        console.error("DB Fetch Error:", err);
       } else {
         socket.emit("previousMessages", messages);
       }
     });
   });
 
-
-  // 🔴 Disconnect
+  /* ---------------------------
+     🔴 DISCONNECT
+  ---------------------------- */
   socket.on("disconnect", () => {
     console.log("User disconnected ❌", socket.id);
   });
-
 });
 
+/* ===============================
+   🔹 GLOBAL ERROR HANDLER
+================================= */
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err.stack);
+  res.status(500).json({ error: "Internal Server Error" });
+});
 
-// 🔹 Start Server
+/* ===============================
+   🔹 START SERVER
+================================= */
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} 🚀`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
