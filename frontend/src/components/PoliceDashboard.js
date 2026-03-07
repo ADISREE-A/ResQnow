@@ -14,6 +14,11 @@ const PoliceDashboard = ({ officerName, officerRank, viewMode = "dashboard" }) =
   const [assignOfficerId, setAssignOfficerId] = useState(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [actionsTaken, setActionsTaken] = useState("");
+  
+  // Evidence & AI Analysis state
+  const [evidence, setEvidence] = useState([]);
+  const [selectedEvidence, setSelectedEvidence] = useState(null);
+  const [analyzingId, setAnalyzingId] = useState(null);
 
   // Rank hierarchy (higher index = higher rank)
   const rankHierarchy = ["Constable", "Patrol", "Sergeant", "Detective", "Lieutenant", "Captain", "Chief"];
@@ -56,6 +61,7 @@ const PoliceDashboard = ({ officerName, officerRank, viewMode = "dashboard" }) =
   ================================= */
   useEffect(() => {
     fetchAllHazards();
+    fetchEvidenceWithAnalysis();
     if (officerName) {
       fetchMyCases();
     }
@@ -73,6 +79,47 @@ const PoliceDashboard = ({ officerName, officerRank, viewMode = "dashboard" }) =
       .then(res => res.json())
       .then(data => setMyHazards(data))
       .catch(err => console.error(err));
+  };
+
+  /* ===============================
+     FETCH EVIDENCE WITH AI ANALYSIS
+  ================================= */
+  const fetchEvidenceWithAnalysis = () => {
+    fetch("http://localhost:5000/api/evidence/with-analysis")
+      .then(res => res.json())
+      .then(data => setEvidence(data))
+      .catch(err => console.error("Error fetching evidence:", err));
+  };
+
+  /* ===============================
+     ANALYZE VIDEO WITH AI
+  ================================= */
+  const analyzeVideo = async (evidenceId, caseId) => {
+    setAnalyzingId(evidenceId);
+    
+    try {
+      const res = await fetch(`http://localhost:5000/api/evidence/analyze/${evidenceId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ case_id: caseId })
+      });
+      
+      const result = await res.json();
+      console.log("Analysis result:", result);
+      
+      // Refresh evidence list
+      fetchEvidenceWithAnalysis();
+      
+      // Show analysis result
+      if (result.analysis) {
+        alert(`🤖 AI Analysis Complete!\n\n${result.analysis.situation_summary}\n\nHelp Needed: ${result.analysis.help_needed?.join(", ")}\n\nConfidence: ${result.analysis.confidence_score}%`);
+      }
+    } catch (err) {
+      console.error("Analysis failed:", err);
+      alert("Failed to analyze video");
+    } finally {
+      setAnalyzingId(null);
+    }
   };
 
   /* ===============================
@@ -654,70 +701,111 @@ const PoliceDashboard = ({ officerName, officerRank, viewMode = "dashboard" }) =
       )}
 
       {/* ===============================
-           GENERATE REPORT MODAL
+           AI EVIDENCE ANALYSIS SECTION
       ================================= */}
-      {showReportModal && (
-        <div style={overlayStyle} onClick={() => setShowReportModal(false)}>
-          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-            <h2>📄 Generate Report & Close Case</h2>
-            <p><strong>Case:</strong> {selectedCase?.case_id}</p>
-            <p><strong>Type:</strong> {selectedCase?.type}</p>
-            <p><strong>Risk Level:</strong> {selectedCase?.risk_level}</p>
-            
-            <label style={{ display: "block", marginBottom: "8px", marginTop: "15px" }}>
-              Resolution Notes:
-            </label>
-            <textarea
-              value={resolutionNotes}
-              onChange={(e) => setResolutionNotes(e.target.value)}
-              placeholder="Describe how the case was resolved..."
-              style={{...inputStyle, minHeight: "80px", resize: "vertical"}}
-            />
-            
-            <label style={{ display: "block", marginBottom: "8px" }}>
-              Actions Taken:
-            </label>
-            <textarea
-              value={actionsTaken}
-              onChange={(e) => setActionsTaken(e.target.value)}
-              placeholder="List actions taken to resolve this case..."
-              style={{...inputStyle, minHeight: "80px", resize: "vertical"}}
-            />
-            
-            <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
-              <button
-                onClick={generateReport}
-                style={{
-                  flex: 1,
-                  padding: "12px",
-                  backgroundColor: "#2e7d32",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontWeight: "bold"
-                }}
-              >
-                📄 Generate Report & Close
-              </button>
-              <button
-                onClick={() => setShowReportModal(false)}
-                style={{
-                  flex: 1,
-                  padding: "12px",
-                  backgroundColor: "#333",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer"
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+      <div style={{ marginTop: "40px", padding: "20px", backgroundColor: "#1a1a1a", borderRadius: "10px" }}>
+        <h2 style={{ marginBottom: "15px" }}>🤖 AI Video Analysis</h2>
+        <p style={{ color: "#888", marginBottom: "20px" }}>
+          Analyze uploaded evidence videos using AI to extract key information, detect emergency indicators, and identify what help is needed.
+        </p>
+        
+        {evidence.length === 0 ? (
+          <div style={{ padding: "20px", textAlign: "center", color: "#666" }}>
+            No evidence available for analysis. Evidence will appear here after being uploaded in Survival Mode.
           </div>
-        </div>
-      )}
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            {evidence.map((ev) => (
+              <div
+                key={ev.id}
+                style={{
+                  background: "#222",
+                  padding: "15px",
+                  borderRadius: "8px",
+                  borderLeft: ev.ai_analysis ? "5px solid #4da6ff" : "5px solid #666"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <strong>📹 Evidence #{ev.id}</strong>
+                    <span style={{ marginLeft: "10px", color: "#888" }}>
+                      {ev.file_path?.split('/').pop()}
+                    </span>
+                  </div>
+                  <div>
+                    {ev.ai_analysis ? (
+                      <span style={{ color: "#4da6ff", fontSize: "12px" }}>✓ Analyzed</span>
+                    ) : (
+                      <span style={{ color: "#666", fontSize: "12px" }}>Not analyzed</span>
+                    )}
+                  </div>
+                </div>
+                
+                <p style={{ margin: "10px 0", fontSize: "13px", color: "#aaa" }}>
+                  📍 Location: {ev.latitude}, {ev.longitude}
+                </p>
+                
+                {/* AI Analysis Result */}
+                {ev.ai_analysis && (
+                  <div style={{ marginTop: "15px", padding: "15px", backgroundColor: "#1a1a1a", borderRadius: "6px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+                      <strong style={{ color: "#4da6ff" }}>🤖 AI Analysis Result</strong>
+                      <span style={{ color: "#00cc00", fontSize: "12px" }}>
+                        Confidence: {ev.ai_analysis.confidence_score}%
+                      </span>
+                    </div>
+                    
+                    <p style={{ marginBottom: "10px" }}>{ev.ai_analysis.situation_summary}</p>
+                    
+                    {ev.ai_analysis.help_needed && ev.ai_analysis.help_needed.length > 0 && (
+                      <div style={{ marginTop: "10px" }}>
+                        <strong style={{ color: "#ff9933" }}>🚨 Help Needed:</strong>
+                        <div style={{ display: "flex", gap: "10px", marginTop: "5px", flexWrap: "wrap" }}>
+                          {ev.ai_analysis.help_needed.map((help, idx) => (
+                            <span key={idx} style={{ 
+                              backgroundColor: "#333", 
+                              padding: "4px 10px", 
+                              borderRadius: "15px",
+                              fontSize: "12px"
+                            }}>
+                              {help}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {ev.ai_analysis.video_info && (
+                      <div style={{ marginTop: "10px", fontSize: "12px", color: "#666" }}>
+                        Video: {ev.ai_analysis.video_info.duration_seconds}s | {ev.ai_analysis.video_info.resolution}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Analyze Button */}
+                <div style={{ marginTop: "15px" }}>
+                  <button
+                    onClick={() => analyzeVideo(ev.id, ev.case_id)}
+                    disabled={analyzingId === ev.id}
+                    style={{
+                      padding: "8px 16px",
+                      backgroundColor: analyzingId === ev.id ? "#444" : "#4da6ff",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: analyzingId === ev.id ? "not-allowed" : "pointer",
+                      fontSize: "13px"
+                    }}
+                  >
+                    {analyzingId === ev.id ? "⏳ Analyzing..." : "🤖 Analyze with AI"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
     </div>
   );

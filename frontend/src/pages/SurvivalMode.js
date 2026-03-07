@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import LiveMap from "../components/LiveMap";
 import DangerZoneMap from "../components/DangerZoneMap";
 import EmergencyChat from "../components/EmergencyChat";
+import EmergencyContacts from "../components/EmergencyContacts";
 import HazardReport from "../components/HazardReport";
 import HazardHistory from "../components/HazardHistory";
 import EvidenceRecorder from "../components/EvidenceRecorder";
+import AIChatbot from "../components/AIChatbot";
 import { speak } from "../utils/voice";
 
 const SurvivalMode = () => {
@@ -166,8 +168,11 @@ const SurvivalMode = () => {
         <div style={styles.rightPanel}>
           <EmergencyChat />
 
-          {/* Proper Hazard Selection */}
+{/* Proper Hazard Selection */}
           <HazardReport onHazardSelect={(hazard) => setCurrentHazard(hazard)} />
+
+          {/* Emergency Contacts */}
+          <EmergencyContacts />
 
           <button
             onClick={() => setShowHistory(true)}
@@ -193,6 +198,9 @@ const SurvivalMode = () => {
       {showHistory && (
         <HazardHistory onClose={() => setShowHistory(false)} />
       )}
+
+      {/* AI CHATBOT */}
+      <AIChatbot currentHazard={currentHazard} userLocation={userLocation} />
     </div>
   );
 };

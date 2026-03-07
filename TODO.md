@@ -1,29 +1,31 @@
-# TODO: Police Dashboard Implementation
+# TODO: Realistic Emergency Chat Implementation
 
-## Backend Updates
-- [x] 1. Add `assigned_officer` and `report` columns to hazards table (via ALTER TABLE) - Created migration file
-- [x] 2. Add backend route: POST /api/hazards/assign-officer - Assign officer to case
-- [x] 3. Add backend route: PUT /api/hazards/generate-report - Generate report when closing case
-- [x] 4. Add backend route: GET /api/hazards/police-cases - Get cases assigned to officer
-- [x] 5. Add backend route: GET /api/hazards/my-cases - Get cases for specific officer
+## Implementation Plan
 
-## Frontend Updates
-- [x] 6. Modify AdminLogin.js - Add Police login toggle with separate password
-- [x] 7. Update App.js - Add police routes and authentication state
-- [x] 8. Create PoliceDashboard.js - Full featured dashboard with:
-  - Statistics cards (total, open, closed, assigned to me)
-  - Danger zone heatmap
-  - Case list with filtering
-  - Assign officer functionality
-  - Status update (open/close)
-  - Generate report when closing case
-- [x] 9. Create PolicePage.js - Container page for police dashboard
-- [ ] 10. Run the migration SQL to add columns to database
+### Step 1: Update Backend (server.js)
+- [x] Add role-based socket events (joinRole, sendToRole)
+- [x] Add admin broadcast functionality
+- [x] Add police alert functionality
+- [x] Add system notification functionality
+- [x] Implement room-based message routing
 
-## Important: Database Migration Required!
-Before testing, run the SQL migration file:
-```
-backend/migrations/add_police_columns.sql
-```
-This adds: `assigned_officer`, `officer_id`, `report`, and `resolution_notes` columns to the hazards table.
+### Step 2: Update Frontend EmergencyChat Component
+- [x] Enhance role-based UI for User/Admin/Police
+- [x] Add admin broadcast controls
+- [x] Add police alert with location features
+- [x] Add real-time notifications for each role
+- [x] Add message priority indicators and styling
+
+### Step 3: Test the Implementation
+- [x] Test user-to-user messaging
+- [x] Test admin broadcast to all users
+- [x] Test police alerts
+- [x] Test role-based message routing
+
+## Previous Tasks (Completed)
+- [x] Auto-record Video on Hazard Report
+- [x] Nearest Safe Places with Route
+- [x] Emergency Contacts
+- [x] Security Features (Partial)
+- [x] Realistic Emergency Chat
 

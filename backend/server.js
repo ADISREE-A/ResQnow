@@ -64,13 +64,50 @@ const io = new Server(server, {
 ================================= */
 io.on("connection", (socket) => {
   console.log("User connected 🔌", socket.id);
+  
+  // Track user's role
+  socket.userRole = "user";
+  socket.rooms = new Set();
 
   /* ---------------------------
      Join Emergency Chat
   ---------------------------- */
   socket.on("joinEmergency", (username) => {
     socket.username = username || "Anonymous";
+    socket.join("emergency");
     console.log(`${socket.username} joined emergency`);
+  });
+
+  /* ---------------------------
+     Join Role-Based Room
+     (admin, police, or user)
+  ---------------------------- */
+  socket.on("joinRole", (role) => {
+    socket.userRole = role || "user";
+    
+    // Leave previous role rooms
+    socket.rooms.forEach(room => {
+      if (room !== "emergency") {
+        socket.leave(room);
+      }
+    });
+    socket.rooms.clear();
+    
+    // Join emergency room and role-specific room
+    socket.join("emergency");
+    socket.join(`role_${role}`);
+    socket.rooms.add("emergency");
+    socket.rooms.add(`role_${role}`);
+    
+    console.log(`${socket.username} joined as ${role}`);
+    
+    // Notify about role join
+    io.to("emergency").emit("systemNotification", {
+      username: "System",
+      message: `${socket.username} has joined as ${role}`,
+      type: "system",
+      timestamp: new Date()
+    });
   });
 
   /* ---------------------------
@@ -80,10 +117,12 @@ io.on("connection", (socket) => {
     if (!data?.message) return;
 
     const messageData = {
+      id: Date.now(),
       username: data.username || "Anonymous",
       message: data.message,
       location: data.location || null,
       type: "normal",
+      priority: data.priority || "normal",
       timestamp: new Date()
     };
 
@@ -91,7 +130,8 @@ io.on("connection", (socket) => {
       if (err) console.error("DB Save Error:", err);
     });
 
-    io.emit("receiveMessage", messageData);
+    // Emit to everyone in emergency room
+    io.to("emergency").emit("receiveMessage", messageData);
   });
 
   /* ---------------------------
@@ -99,10 +139,12 @@ io.on("connection", (socket) => {
   ---------------------------- */
   socket.on("panicActivated", (data) => {
     const alertData = {
+      id: Date.now(),
       username: data.username || "User",
       message: "🚨 PANIC ALERT ACTIVATED!",
       location: data.location || null,
       type: "alert",
+      priority: "critical",
       timestamp: new Date()
     };
 
@@ -110,7 +152,125 @@ io.on("connection", (socket) => {
       if (err) console.error("DB Save Error:", err);
     });
 
-    io.emit("receiveMessage", alertData);
+    // Emit to everyone
+    io.to("emergency").emit("receiveMessage", alertData);
+    
+    // Also emit specific alert for police/admin
+    io.to("emergency").emit("policeAlert", alertData);
+  });
+
+  /* ---------------------------
+     📢 ADMIN BROADCAST
+     (Admin sends to all users)
+  ---------------------------- */
+  socket.on("adminBroadcast", (data) => {
+    if (socket.userRole !== "admin") {
+      socket.emit("error", { message: "Unauthorized: Admin only" });
+      return;
+    }
+
+    const broadcastData = {
+      id: Date.now(),
+      username: data.username || "Admin",
+      message: data.message,
+      location: null,
+      type: "admin",
+      priority: data.priority || "high",
+      timestamp: new Date()
+    };
+
+    // Save to database
+    saveMessage(broadcastData, (err) => {
+      if (err) console.error("DB Save Error:", err);
+    });
+
+    // Broadcast to all users in emergency room
+    io.to("emergency").emit("adminBroadcast", broadcastData);
+  });
+
+  /* ---------------------------
+     🚔 POLICE ALERT
+     (Police sends to emergency services)
+  ---------------------------- */
+  socket.on("sendPoliceAlert", (data) => {
+    if (socket.userRole !== "police" && socket.userRole !== "admin") {
+      socket.emit("error", { message: "Unauthorized: Police/Admin only" });
+      return;
+    }
+
+    const alertData = {
+      id: Date.now(),
+      username: data.username || "Police",
+      message: data.message,
+      location: data.location || null,
+      type: "police",
+      priority: data.priority || "high",
+      timestamp: new Date()
+    };
+
+    // Save to database
+    saveMessage(alertData, (err) => {
+      if (err) console.error("DB Save Error:", err);
+    });
+
+    // Send to police and admin roles
+    io.to("role_police").emit("policeAlert", alertData);
+    io.to("role_admin").emit("policeAlert", alertData);
+    
+    // Also emit to emergency room for visibility
+    io.to("emergency").emit("receiveMessage", alertData);
+  });
+
+  /* ---------------------------
+     💬 SEND TO SPECIFIC ROLE
+     (Send message to admin/police/users only)
+  ---------------------------- */
+  socket.on("sendToRole", (data) => {
+    const { targetRole, message } = data;
+    
+    if (!targetRole || !message) return;
+
+    const messageData = {
+      id: Date.now(),
+      username: data.username || socket.username || "Anonymous",
+      message: message,
+      location: data.location || null,
+      type: "role_message",
+      targetRole: targetRole,
+      priority: data.priority || "normal",
+      timestamp: new Date()
+    };
+
+    // Save to database
+    saveMessage(messageData, (err) => {
+      if (err) console.error("DB Save Error:", err);
+    });
+
+    // Send to specific role room
+    io.to(`role_${targetRole}`).emit("roleMessage", messageData);
+  });
+
+  /* ---------------------------
+     🔔 SYSTEM NOTIFICATION
+  ---------------------------- */
+  socket.on("systemNotification", (data) => {
+    const notificationData = {
+      id: Date.now(),
+      username: "System",
+      message: data.message,
+      location: null,
+      type: "system",
+      priority: "normal",
+      timestamp: new Date()
+    };
+
+    // Save to database
+    saveMessage(notificationData, (err) => {
+      if (err) console.error("DB Save Error:", err);
+    });
+
+    // Broadcast to all
+    io.to("emergency").emit("systemNotification", notificationData);
   });
 
   /* ---------------------------
@@ -127,10 +287,35 @@ io.on("connection", (socket) => {
   });
 
   /* ---------------------------
+     👤 GET CONNECTED USERS
+  ---------------------------- */
+  socket.on("getConnectedUsers", () => {
+    const users = [];
+    io.in("emergency").fetchSockets().then(sockets => {
+      sockets.forEach(s => {
+        users.push({
+          id: s.id,
+          username: s.username,
+          role: s.userRole
+        });
+      });
+      socket.emit("connectedUsers", users);
+    });
+  });
+
+  /* ---------------------------
      🔴 DISCONNECT
   ---------------------------- */
   socket.on("disconnect", () => {
     console.log("User disconnected ❌", socket.id);
+    
+    // Notify about user leaving
+    io.to("emergency").emit("systemNotification", {
+      username: "System",
+      message: `${socket.username || "Anonymous"} has left the emergency chat`,
+      type: "system",
+      timestamp: new Date()
+    });
   });
 });
 
@@ -150,3 +335,4 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
