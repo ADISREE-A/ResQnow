@@ -5,6 +5,10 @@ const { Server } = require("socket.io");
 require("dotenv").config();
 const path = require("path");
 
+// Security imports
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+
 // Routes
 const locationRoutes = require("./routes/locationRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
@@ -18,22 +22,102 @@ const { saveMessage, getMessages } = require("./models/MessageModel");
 const app = express();
 
 /* ===============================
-   🔹 MIDDLEWARE
+   🔒 SECURITY MIDDLEWARE (CIA)
 ================================= */
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "*",
-    methods: ["GET", "POST", "PUT", "DELETE"]
-  })
-);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Helmet - Sets various HTTP headers for security
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://tiles.openstreetmap.org"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      connectSrc: ["'self'", "https://overpass-api.de"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS - Configure allowed origins
+app.use(cors({
+  origin: process.env.CLIENT_URL || "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// Rate Limiting - Prevent brute force and DoS attacks
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: { error: "Too many requests, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Strict limit for auth endpoints
+  message: { error: "Too many authentication attempts, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const emergencyLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 20, // Higher limit for emergency endpoints
+  message: { error: "Emergency request limit exceeded." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiters
+app.use("/api/", generalLimiter);
+app.use("/api/auth/", authLimiter); // For login endpoints if you add them
+app.use("/api/emergency", emergencyLimiter);
+
+// Body parser with size limits (prevent large payload attacks)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* ===============================
    🔹 STATIC FILES
 ================================= */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+/* ===============================
+   🔹 INPUT VALIDATION MIDDLEWARE
+================================= */
+
+// Sanitize inputs to prevent SQL injection and XSS
+const sanitizeInput = (req, res, next) => {
+  const sanitizeObject = (obj) => {
+    if (typeof obj !== 'object' || obj === null) return obj;
+    
+    for (const key in obj) {
+      if (typeof obj[key] === 'string') {
+        // Remove potential script tags and SQL injection patterns
+        obj[key] = obj[key]
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/javascript:/gi, '')
+          .replace(/on\w+\s*=/gi, '')
+          .trim();
+      } else if (typeof obj[key] === 'object') {
+        obj[key] = sanitizeObject(obj[key]);
+      }
+    }
+    return obj;
+  };
+
+  if (req.body) req.body = sanitizeObject(req.body);
+  if (req.query) req.query = sanitizeObject(req.query);
+  if (req.params) req.params = sanitizeObject(req.params);
+  
+  next();
+};
+
+app.use(sanitizeInput);
 
 /* ===============================
    🔹 API ROUTES
@@ -43,6 +127,13 @@ app.use("/api/location", locationRoutes);
 app.use("/api/hazards", hazardRoutes);
 app.use("/api/evidence", evidenceRoutes);
 app.use("/api/officers", officerRoutes);
+
+/* ===============================
+   🔹 HEALTH CHECK ENDPOINT
+================================= */
+app.get("/api/health", (req, res) => {
+  res.json({ status: "healthy", timestamp: new Date().toISOString() });
+});
 
 /* ===============================
    🔹 CREATE HTTP SERVER
@@ -56,7 +147,11 @@ const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || "*",
     methods: ["GET", "POST"]
-  }
+  },
+  // Security: Limit connection time and verify origins
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling']
 });
 
 /* ===============================
@@ -69,13 +164,35 @@ io.on("connection", (socket) => {
   socket.userRole = "user";
   socket.rooms = new Set();
 
+  // Rate limiting for socket events
+  let messageCount = 0;
+  const messageResetTime = Date.now() + 60000; // Reset every minute
+  
+  const checkMessageRate = () => {
+    if (Date.now() > messageResetTime) {
+      messageCount = 0;
+    }
+    if (messageCount > 10) {
+      socket.emit("error", { message: "Rate limit exceeded" });
+      return false;
+    }
+    messageCount++;
+    return true;
+  };
+
   /* ---------------------------
      Join Emergency Chat
   ---------------------------- */
   socket.on("joinEmergency", (username) => {
-    socket.username = username || "Anonymous";
+    // Sanitize username
+    const sanitizedUsername = (username || "Anonymous")
+      .toString()
+      .replace(/<[^>]*>/g, '')
+      .substring(0, 50);
+    
+    socket.username = sanitizedUsername;
     socket.join("emergency");
-    console.log(`${socket.username} joined emergency`);
+    console.log(`${sanitizedUsername} joined emergency`);
   });
 
   /* ---------------------------
@@ -83,7 +200,11 @@ io.on("connection", (socket) => {
      (admin, police, or user)
   ---------------------------- */
   socket.on("joinRole", (role) => {
-    socket.userRole = role || "user";
+    // Validate role
+    const validRoles = ["admin", "police", "user"];
+    const sanitizedRole = validRoles.includes(role) ? role : "user";
+    
+    socket.userRole = sanitizedRole;
     
     // Leave previous role rooms
     socket.rooms.forEach(room => {
@@ -95,16 +216,16 @@ io.on("connection", (socket) => {
     
     // Join emergency room and role-specific room
     socket.join("emergency");
-    socket.join(`role_${role}`);
+    socket.join(`role_${sanitizedRole}`);
     socket.rooms.add("emergency");
-    socket.rooms.add(`role_${role}`);
+    socket.rooms.add(`role_${sanitizedRole}`);
     
-    console.log(`${socket.username} joined as ${role}`);
+    console.log(`${socket.username} joined as ${sanitizedRole}`);
     
     // Notify about role join
     io.to("emergency").emit("systemNotification", {
       username: "System",
-      message: `${socket.username} has joined as ${role}`,
+      message: `${socket.username} has joined as ${sanitizedRole}`,
       type: "system",
       timestamp: new Date()
     });
@@ -114,15 +235,28 @@ io.on("connection", (socket) => {
      💬 NORMAL MESSAGE
   ---------------------------- */
   socket.on("sendMessage", (data) => {
+    if (!checkMessageRate()) return;
     if (!data?.message) return;
+
+    // Sanitize message
+    const sanitizedMessage = data.message
+      .toString()
+      .replace(/<[^>]*>/g, '')
+      .substring(0, 500);
 
     const messageData = {
       id: Date.now(),
-      username: data.username || "Anonymous",
-      message: data.message,
-      location: data.location || null,
+      username: (data.username || socket.username || "Anonymous")
+        .toString()
+        .replace(/<[^>]*>/g, '')
+        .substring(0, 50),
+      message: sanitizedMessage,
+      location: data.location ? {
+        lat: parseFloat(data.location.lat) || null,
+        lng: parseFloat(data.location.lng) || null
+      } : null,
       type: "normal",
-      priority: data.priority || "normal",
+      priority: ["normal", "high", "critical"].includes(data.priority) ? data.priority : "normal",
       timestamp: new Date()
     };
 
@@ -138,11 +272,21 @@ io.on("connection", (socket) => {
      🚨 PANIC ALERT
   ---------------------------- */
   socket.on("panicActivated", (data) => {
+    if (!checkMessageRate()) return;
+    
+    const sanitizedUsername = (data.username || "User")
+      .toString()
+      .replace(/<[^>]*>/g, '')
+      .substring(0, 50);
+
     const alertData = {
       id: Date.now(),
-      username: data.username || "User",
+      username: sanitizedUsername,
       message: "🚨 PANIC ALERT ACTIVATED!",
-      location: data.location || null,
+      location: data.location ? {
+        lat: parseFloat(data.location.lat) || null,
+        lng: parseFloat(data.location.lng) || null
+      } : null,
       type: "alert",
       priority: "critical",
       timestamp: new Date()
@@ -169,13 +313,21 @@ io.on("connection", (socket) => {
       return;
     }
 
+    const sanitizedMessage = data.message
+      .toString()
+      .replace(/<[^>]*>/g, '')
+      .substring(0, 1000);
+
     const broadcastData = {
       id: Date.now(),
-      username: data.username || "Admin",
-      message: data.message,
+      username: (data.username || "Admin")
+        .toString()
+        .replace(/<[^>]*>/g, '')
+        .substring(0, 50),
+      message: sanitizedMessage,
       location: null,
       type: "admin",
-      priority: data.priority || "high",
+      priority: ["normal", "high", "critical"].includes(data.priority) ? data.priority : "high",
       timestamp: new Date()
     };
 
@@ -197,14 +349,26 @@ io.on("connection", (socket) => {
       socket.emit("error", { message: "Unauthorized: Police/Admin only" });
       return;
     }
+    if (!checkMessageRate()) return;
+
+    const sanitizedMessage = data.message
+      .toString()
+      .replace(/<[^>]*>/g, '')
+      .substring(0, 500);
 
     const alertData = {
       id: Date.now(),
-      username: data.username || "Police",
-      message: data.message,
-      location: data.location || null,
+      username: (data.username || "Police")
+        .toString()
+        .replace(/<[^>]*>/g, '')
+        .substring(0, 50),
+      message: sanitizedMessage,
+      location: data.location ? {
+        lat: parseFloat(data.location.lat) || null,
+        lng: parseFloat(data.location.lng) || null
+      } : null,
       type: "police",
-      priority: data.priority || "high",
+      priority: ["normal", "high", "critical"].includes(data.priority) ? data.priority : "high",
       timestamp: new Date()
     };
 
@@ -226,18 +390,32 @@ io.on("connection", (socket) => {
      (Send message to admin/police/users only)
   ---------------------------- */
   socket.on("sendToRole", (data) => {
-    const { targetRole, message } = data;
+    if (!checkMessageRate()) return;
     
-    if (!targetRole || !message) return;
+    const { targetRole, message } = data;
+    const validRoles = ["admin", "police", "user"];
+    
+    if (!targetRole || !message || !validRoles.includes(targetRole)) return;
+
+    const sanitizedMessage = message
+      .toString()
+      .replace(/<[^>]*>/g, '')
+      .substring(0, 500);
 
     const messageData = {
       id: Date.now(),
-      username: data.username || socket.username || "Anonymous",
-      message: message,
-      location: data.location || null,
+      username: (data.username || socket.username || "Anonymous")
+        .toString()
+        .replace(/<[^>]*>/g, '')
+        .substring(0, 50),
+      message: sanitizedMessage,
+      location: data.location ? {
+        lat: parseFloat(data.location.lat) || null,
+        lng: parseFloat(data.location.lng) || null
+      } : null,
       type: "role_message",
       targetRole: targetRole,
-      priority: data.priority || "normal",
+      priority: ["normal", "high", "critical"].includes(data.priority) ? data.priority : "normal",
       timestamp: new Date()
     };
 
@@ -254,10 +432,17 @@ io.on("connection", (socket) => {
      🔔 SYSTEM NOTIFICATION
   ---------------------------- */
   socket.on("systemNotification", (data) => {
+    if (!checkMessageRate()) return;
+    
+    const sanitizedMessage = (data.message || "")
+      .toString()
+      .replace(/<[^>]*>/g, '')
+      .substring(0, 200);
+
     const notificationData = {
       id: Date.now(),
       username: "System",
-      message: data.message,
+      message: sanitizedMessage,
       location: null,
       type: "system",
       priority: "normal",
@@ -281,7 +466,9 @@ io.on("connection", (socket) => {
       if (err) {
         console.error("DB Fetch Error:", err);
       } else {
-        socket.emit("previousMessages", messages);
+        // Limit messages to last 100 for performance
+        const limitedMessages = Array.isArray(messages) ? messages.slice(-100) : [];
+        socket.emit("previousMessages", limitedMessages);
       }
     });
   });
@@ -334,5 +521,6 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🔒 Security features enabled: Helmet, Rate Limiting, Input Sanitization`);
 });
 

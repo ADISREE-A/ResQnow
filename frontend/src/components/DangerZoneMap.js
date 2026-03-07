@@ -55,10 +55,18 @@ const DangerZoneMap = ({
   showLegend = true,
   onZoneClick,
   userLocation = null,
-  dangerWarning = null
+  dangerWarning = null,
+  darkMode = true
 }) => {
   const [hazards, setHazards] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Theme colors
+  const theme = {
+    bg: darkMode ? "#1a1a1a" : "#f5f5f5",
+    text: darkMode ? "#ffffff" : "#333333",
+    overlayBg: darkMode ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.9)"
+  };
 
   /* Fetch hazards for heatmap */
   useEffect(() => {
@@ -83,11 +91,11 @@ const DangerZoneMap = ({
     return (
       <div style={{ 
         height, 
-        backgroundColor: "#1a1a1a", 
+        backgroundColor: theme.bg, 
         display: "flex", 
         alignItems: "center", 
         justifyContent: "center",
-        color: "#888",
+        color: darkMode ? "#888" : "#666",
         borderRadius: "8px"
       }}>
         Loading danger zones...
@@ -125,7 +133,10 @@ const DangerZoneMap = ({
 
           <TileLayer
             attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url={darkMode 
+              ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+              : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            }
           />
 
           {/* Danger Zone Circles */}
@@ -150,7 +161,7 @@ const DangerZoneMap = ({
                 }}
               >
                 <Popup>
-                  <div style={{ minWidth: "150px" }}>
+                  <div style={{ minWidth: "150px", color: "#333" }}>
                     <strong style={{ color: color }}>{hazard.type}</strong>
                     <br />
                     <span>Case: {hazard.case_id}</span>
@@ -190,11 +201,11 @@ const DangerZoneMap = ({
           position: "absolute",
           bottom: "20px",
           right: "10px",
-          backgroundColor: "rgba(0,0,0,0.8)",
+          backgroundColor: theme.overlayBg,
           padding: "12px",
           borderRadius: "8px",
           zIndex: 1000,
-          color: "white",
+          color: darkMode ? "white" : "#333",
           fontSize: "12px"
         }}>
           <div style={{ marginBottom: "8px", fontWeight: "bold" }}>Danger Level</div>
@@ -222,11 +233,11 @@ const DangerZoneMap = ({
         position: "absolute",
         top: "10px",
         left: "10px",
-        backgroundColor: "rgba(0,0,0,0.8)",
+        backgroundColor: theme.overlayBg,
         padding: "10px",
         borderRadius: "8px",
         zIndex: 1000,
-        color: "white",
+        color: darkMode ? "white" : "#333",
         fontSize: "12px"
       }}>
         <div>Total Danger Zones: <strong>{hazards.length}</strong></div>

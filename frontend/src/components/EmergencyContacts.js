@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
-const EmergencyContacts = () => {
-  const [showAllContacts, setShowAllContacts] = useState(false);
+const EmergencyContacts = ({ showAll = false }) => {
+  const [showAllContacts, setShowAllContacts] = useState(showAll);
 
   // Emergency contacts by category
   const emergencyContacts = {
@@ -40,7 +40,7 @@ const EmergencyContacts = () => {
   };
 
   // Get first categories for compact few view
-  const visibleCategories = showAllContacts 
+  const visibleCategories = showAllContacts || showAll
     ? Object.keys(emergencyContacts) 
     : ["🚨 Life Threatening", "👮 Police", "🏥 Medical"];
 
@@ -52,28 +52,30 @@ const EmergencyContacts = () => {
       marginTop: "20px",
       color: "white"
     }}>
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "space-between", 
-        alignItems: "center",
-        marginBottom: "15px"
-      }}>
-        <h2 style={{ margin: 0 }}>📞 Emergency Contacts</h2>
-        <button
-          onClick={() => setShowAllContacts(!showAllContacts)}
-          style={{
-            background: "none",
-            border: "1px solid #4da6ff",
-            color: "#4da6ff",
-            padding: "5px 12px",
-            borderRadius: "15px",
-            cursor: "pointer",
-            fontSize: "12px"
-          }}
-        >
-          {showAllContacts ? "Show Less" : "Show All"}
-        </button>
-      </div>
+      {!showAll && (
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "15px"
+        }}>
+          <h2 style={{ margin: 0 }}>📞 Emergency Contacts</h2>
+          <button
+            onClick={() => setShowAllContacts(!showAllContacts)}
+            style={{
+              background: "none",
+              border: "1px solid #4da6ff",
+              color: "#4da6ff",
+              padding: "5px 12px",
+              borderRadius: "15px",
+              cursor: "pointer",
+              fontSize: "12px"
+            }}
+          >
+            {showAllContacts ? "Show Less" : "Show All"}
+          </button>
+        </div>
+      )}
 
       <div style={{ display: "grid", gap: "15px" }}>
         {visibleCategories.map((category) => (

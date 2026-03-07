@@ -149,7 +149,7 @@ const AIChatbot = ({ currentHazard, userLocation }) => {
         onClick={() => setIsOpen(!isOpen)}
         style={{
           position: "fixed",
-          bottom: "20px",
+          bottom: "90px",
           right: "20px",
           width: "60px",
           height: "60px",

@@ -1,9 +1,14 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-const Home = () => {
+const Home = ({ darkMode = true, toggleTheme }) => {
 
   const navigate = useNavigate();
+
+  const bgColor = darkMode ? "#000000" : "#f5f5f5";
+  const textColor = darkMode ? "#ffffff" : "#333333";
+  const cardBg = darkMode ? "#1a1a2e" : "#ffffff";
+  const borderColor = darkMode ? "#333333" : "#cccccc";
 
   return (
     <div style={{
@@ -12,11 +17,37 @@ const Home = () => {
       flexDirection: "column",
       justifyContent: "center",
       alignItems: "center",
-      backgroundColor: "#000",
-      gap: "30px"
+      backgroundColor: bgColor,
+      gap: "30px",
+      transition: "all 0.3s ease"
     }}>
 
-      <h1 style={{ color: "white" }}>🚑 ResQNow</h1>
+      {/* 🎨 Theme Toggle Button */}
+      {toggleTheme && (
+        <button
+          onClick={toggleTheme}
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            width: "50px",
+            height: "50px",
+            borderRadius: "50%",
+            backgroundColor: darkMode ? "#4ecca3" : "#2196F3",
+            color: darkMode ? "#000" : "#fff",
+            border: "none",
+            fontSize: "24px",
+            cursor: "pointer",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+            zIndex: 1000
+          }}
+          title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        >
+          {darkMode ? "☀️" : "🌙"}
+        </button>
+      )}
+
+      <h1 style={{ color: textColor }}>🚑 ResQNow</h1>
 
       {/* 🚨 Panic Button */}
       <button
@@ -29,7 +60,8 @@ const Home = () => {
           fontSize: "18px",
           border: "none",
           borderRadius: "10px",
-          cursor: "pointer"
+          cursor: "pointer",
+          boxShadow: "0 4px 15px rgba(255, 0, 0, 0.4)"
         }}
       >
         🚨 PANIC
@@ -41,10 +73,10 @@ const Home = () => {
         style={{
           width: "200px",
           height: "60px",
-          backgroundColor: "#222",
-          color: "white",
+          backgroundColor: cardBg,
+          color: textColor,
           fontSize: "16px",
-          border: "2px solid white",
+          border: `2px solid ${borderColor}`,
           borderRadius: "10px",
           cursor: "pointer"
         }}

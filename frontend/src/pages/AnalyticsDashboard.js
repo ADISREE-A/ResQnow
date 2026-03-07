@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import DangerZoneMap from "../components/DangerZoneMap";
 
-const AnalyticsDashboard = () => {
+const AnalyticsDashboard = ({ darkMode = true }) => {
   const [summary, setSummary] = useState(null);
   const [byType, setByType] = useState([]);
   const [byRisk, setByRisk] = useState([]);
@@ -9,6 +9,16 @@ const AnalyticsDashboard = () => {
   const [dangerZones, setDangerZones] = useState([]);
   const [timeFilter, setTimeFilter] = useState("month");
   const [loading, setLoading] = useState(true);
+
+  // Dynamic theme colors
+  const theme = {
+    bg: darkMode ? "#0d0d0d" : "#f5f5f5",
+    cardBg: darkMode ? "#1a1a1a" : "#ffffff",
+    text: darkMode ? "#ffffff" : "#333333",
+    textSecondary: darkMode ? "#888" : "#666666",
+    border: darkMode ? "#333" : "#dddddd",
+    accent: "#4da6ff"
+  };
 
   /* Fetch all analytics data */
   useEffect(() => {
@@ -60,6 +70,255 @@ const AnalyticsDashboard = () => {
     return Math.max(...arr.map(item => item.count));
   };
 
+  const styles = {
+    container: {
+      backgroundColor: theme.bg,
+      color: theme.text,
+      minHeight: "100vh",
+      padding: "20px",
+      fontFamily: "Arial, sans-serif",
+      transition: "all 0.3s ease"
+    },
+    loading: {
+      textAlign: "center",
+      padding: "50px",
+      fontSize: "18px",
+      color: theme.textSecondary
+    },
+    header: {
+      marginBottom: "30px"
+    },
+    filterContainer: {
+      display: "flex",
+      alignItems: "center",
+      gap: "15px",
+      marginTop: "15px"
+    },
+    filterLabel: {
+      fontSize: "14px",
+      color: theme.textSecondary
+    },
+    filterSelect: {
+      padding: "8px 15px",
+      backgroundColor: darkMode ? "#222" : "#fff",
+      color: theme.text,
+      border: `1px solid ${theme.border}`,
+      borderRadius: "5px",
+      fontSize: "14px"
+    },
+    refreshBtn: {
+      padding: "8px 20px",
+      backgroundColor: darkMode ? "#333" : "#ddd",
+      color: theme.text,
+      border: `1px solid ${theme.border}`,
+      borderRadius: "5px",
+      cursor: "pointer",
+      fontSize: "14px"
+    },
+    summaryGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(4, 1fr)",
+      gap: "20px",
+      marginBottom: "30px"
+    },
+    summaryCard: {
+      backgroundColor: theme.cardBg,
+      padding: "20px",
+      borderRadius: "10px",
+      borderLeft: "4px solid #4da6ff",
+      border: `1px solid ${theme.border}`,
+      transition: "all 0.3s ease"
+    },
+    summaryLabel: {
+      fontSize: "14px",
+      color: theme.textSecondary,
+      marginBottom: "10px"
+    },
+    summaryValue: {
+      fontSize: "32px",
+      fontWeight: "bold",
+      color: theme.text
+    },
+    section: {
+      backgroundColor: theme.cardBg,
+      padding: "25px",
+      borderRadius: "12px",
+      marginBottom: "20px",
+      border: `1px solid ${theme.border}`,
+      transition: "all 0.3s ease"
+    },
+    sectionTitle: {
+      marginBottom: "20px",
+      borderBottom: `2px solid ${theme.border}`,
+      paddingBottom: "10px",
+      color: theme.text
+    },
+    riskGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+      gap: "15px"
+    },
+    riskCard: {
+      backgroundColor: darkMode ? "#222" : "#f5f5f5",
+      padding: "15px",
+      borderRadius: "8px",
+      overflow: "hidden",
+      border: `1px solid ${theme.border}`
+    },
+    riskBar: {
+      height: "8px",
+      borderRadius: "4px",
+      marginBottom: "10px"
+    },
+    riskInfo: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    },
+    riskLabel: {
+      fontSize: "14px",
+      fontWeight: "bold",
+      color: theme.text
+    },
+    riskCount: {
+      fontSize: "18px",
+      fontWeight: "bold",
+      color: "#4da6ff"
+    },
+    typeGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+      gap: "15px"
+    },
+    typeCard: {
+      backgroundColor: darkMode ? "#222" : "#f5f5f5",
+      padding: "15px",
+      borderRadius: "8px",
+      border: `1px solid ${theme.border}`
+    },
+    typeName: {
+      fontSize: "16px",
+      fontWeight: "bold",
+      marginBottom: "8px",
+      color: theme.text
+    },
+    typeBarContainer: {
+      height: "8px",
+      backgroundColor: darkMode ? "#333" : "#ddd",
+      borderRadius: "4px",
+      marginBottom: "8px",
+      overflow: "hidden"
+    },
+    typeBar: {
+      height: "100%",
+      backgroundColor: "#4da6ff",
+      borderRadius: "4px"
+    },
+    typeStats: {
+      display: "flex",
+      justifyContent: "space-between",
+      fontSize: "12px",
+      color: theme.textSecondary
+    },
+    timelineContainer: {
+      maxHeight: "400px",
+      overflowY: "auto"
+    },
+    timelineItem: {
+      display: "grid",
+      gridTemplateColumns: "80px 1fr 60px 150px",
+      gap: "15px",
+      alignItems: "center",
+      padding: "12px",
+      borderBottom: `1px solid ${theme.border}`
+    },
+    timelineLabel: {
+      fontSize: "14px",
+      fontWeight: "bold",
+      color: theme.text
+    },
+    timelineBarContainer: {
+      height: "20px",
+      backgroundColor: darkMode ? "#333" : "#ddd",
+      borderRadius: "4px",
+      overflow: "hidden"
+    },
+    timelineBar: {
+      height: "100%",
+      backgroundColor: "#4da6ff",
+      borderRadius: "4px"
+    },
+    timelineCount: {
+      fontSize: "18px",
+      fontWeight: "bold",
+      textAlign: "right",
+      color: theme.text
+    },
+    timelineBreakdown: {
+      fontSize: "12px",
+      display: "flex",
+      gap: "8px"
+    },
+    dangerZonesList: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "10px"
+    },
+    dangerZoneItem: {
+      display: "flex",
+      alignItems: "center",
+      gap: "20px",
+      padding: "15px",
+      backgroundColor: darkMode ? "#222" : "#f5f5f5",
+      borderRadius: "8px",
+      borderLeft: "4px solid #ff0000",
+      border: `1px solid ${theme.border}`
+    },
+    dangerZoneRank: {
+      fontSize: "24px",
+      fontWeight: "bold",
+      color: "#ff0000",
+      width: "40px"
+    },
+    dangerZoneInfo: {
+      flex: 1
+    },
+    dangerZoneLocation: {
+      fontSize: "14px",
+      fontWeight: "bold",
+      color: theme.text
+    },
+    dangerZoneTypes: {
+      fontSize: "12px",
+      color: theme.textSecondary,
+      marginTop: "4px"
+    },
+    dangerZoneStats: {
+      textAlign: "right",
+      fontSize: "12px",
+      color: theme.textSecondary
+    },
+    noData: {
+      textAlign: "center",
+      padding: "30px",
+      color: theme.textSecondary
+    },
+    exportSection: {
+      textAlign: "center",
+      marginTop: "30px"
+    },
+    exportBtn: {
+      padding: "15px 30px",
+      backgroundColor: "#4da6ff",
+      color: "white",
+      border: "none",
+      borderRadius: "8px",
+      fontSize: "16px",
+      cursor: "pointer",
+      fontWeight: "bold"
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -73,7 +332,7 @@ const AnalyticsDashboard = () => {
       {/* Header */}
       <div style={styles.header}>
         <h1>📊 Analytics Dashboard</h1>
-        <p>Comprehensive hazard analysis and risk insights</p>
+        <p style={{ color: theme.textSecondary }}>Comprehensive hazard analysis and risk insights</p>
         
         {/* Time Filter */}
         <div style={styles.filterContainer}>
@@ -220,7 +479,7 @@ const AnalyticsDashboard = () => {
       {/* Danger Zone Map */}
       <div style={styles.section}>
         <h2 style={styles.sectionTitle}>🗺 Danger Zone Map</h2>
-        <DangerZoneMap height="500px" showLegend={true} />
+        <DangerZoneMap height="500px" showLegend={true} darkMode={darkMode} />
       </div>
 
       {/* Export Button */}
@@ -249,239 +508,6 @@ const AnalyticsDashboard = () => {
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    backgroundColor: "#0d0d0d",
-    color: "white",
-    minHeight: "100vh",
-    padding: "20px",
-    fontFamily: "Arial, sans-serif"
-  },
-  loading: {
-    textAlign: "center",
-    padding: "50px",
-    fontSize: "18px",
-    color: "#888"
-  },
-  header: {
-    marginBottom: "30px"
-  },
-  filterContainer: {
-    display: "flex",
-    alignItems: "center",
-    gap: "15px",
-    marginTop: "15px"
-  },
-  filterLabel: {
-    fontSize: "14px",
-    color: "#888"
-  },
-  filterSelect: {
-    padding: "8px 15px",
-    backgroundColor: "#222",
-    color: "white",
-    border: "1px solid #444",
-    borderRadius: "5px",
-    fontSize: "14px"
-  },
-  refreshBtn: {
-    padding: "8px 20px",
-    backgroundColor: "#333",
-    color: "white",
-    border: "1px solid #555",
-    borderRadius: "5px",
-    cursor: "pointer",
-    fontSize: "14px"
-  },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "20px",
-    marginBottom: "30px"
-  },
-  summaryCard: {
-    backgroundColor: "#1a1a1a",
-    padding: "20px",
-    borderRadius: "10px",
-    borderLeft: "4px solid #4da6ff"
-  },
-  summaryLabel: {
-    fontSize: "14px",
-    color: "#888",
-    marginBottom: "10px"
-  },
-  summaryValue: {
-    fontSize: "32px",
-    fontWeight: "bold"
-  },
-  section: {
-    backgroundColor: "#1a1a1a",
-    padding: "25px",
-    borderRadius: "12px",
-    marginBottom: "20px"
-  },
-  sectionTitle: {
-    marginBottom: "20px",
-    borderBottom: "2px solid #333",
-    paddingBottom: "10px"
-  },
-  riskGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "15px"
-  },
-  riskCard: {
-    backgroundColor: "#222",
-    padding: "15px",
-    borderRadius: "8px",
-    overflow: "hidden"
-  },
-  riskBar: {
-    height: "8px",
-    borderRadius: "4px",
-    marginBottom: "10px"
-  },
-  riskInfo: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
-  riskLabel: {
-    fontSize: "14px",
-    fontWeight: "bold"
-  },
-  riskCount: {
-    fontSize: "18px",
-    fontWeight: "bold",
-    color: "#4da6ff"
-  },
-  typeGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-    gap: "15px"
-  },
-  typeCard: {
-    backgroundColor: "#222",
-    padding: "15px",
-    borderRadius: "8px"
-  },
-  typeName: {
-    fontSize: "16px",
-    fontWeight: "bold",
-    marginBottom: "8px"
-  },
-  typeBarContainer: {
-    height: "8px",
-    backgroundColor: "#333",
-    borderRadius: "4px",
-    marginBottom: "8px",
-    overflow: "hidden"
-  },
-  typeBar: {
-    height: "100%",
-    backgroundColor: "#4da6ff",
-    borderRadius: "4px"
-  },
-  typeStats: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: "12px",
-    color: "#888"
-  },
-  timelineContainer: {
-    maxHeight: "400px",
-    overflowY: "auto"
-  },
-  timelineItem: {
-    display: "grid",
-    gridTemplateColumns: "80px 1fr 60px 150px",
-    gap: "15px",
-    alignItems: "center",
-    padding: "12px",
-    borderBottom: "1px solid #333"
-  },
-  timelineLabel: {
-    fontSize: "14px",
-    fontWeight: "bold"
-  },
-  timelineBarContainer: {
-    height: "20px",
-    backgroundColor: "#333",
-    borderRadius: "4px",
-    overflow: "hidden"
-  },
-  timelineBar: {
-    height: "100%",
-    backgroundColor: "#4da6ff",
-    borderRadius: "4px"
-  },
-  timelineCount: {
-    fontSize: "18px",
-    fontWeight: "bold",
-    textAlign: "right"
-  },
-  timelineBreakdown: {
-    fontSize: "12px",
-    display: "flex",
-    gap: "8px"
-  },
-  dangerZonesList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px"
-  },
-  dangerZoneItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "20px",
-    padding: "15px",
-    backgroundColor: "#222",
-    borderRadius: "8px",
-    borderLeft: "4px solid #ff0000"
-  },
-  dangerZoneRank: {
-    fontSize: "24px",
-    fontWeight: "bold",
-    color: "#ff0000",
-    width: "40px"
-  },
-  dangerZoneInfo: {
-    flex: 1
-  },
-  dangerZoneLocation: {
-    fontSize: "14px",
-    fontWeight: "bold"
-  },
-  dangerZoneTypes: {
-    fontSize: "12px",
-    color: "#888",
-    marginTop: "4px"
-  },
-  dangerZoneStats: {
-    textAlign: "right",
-    fontSize: "12px"
-  },
-  noData: {
-    textAlign: "center",
-    padding: "30px",
-    color: "#888"
-  },
-  exportSection: {
-    textAlign: "center",
-    marginTop: "30px"
-  },
-  exportBtn: {
-    padding: "15px 30px",
-    backgroundColor: "#4da6ff",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "16px",
-    cursor: "pointer",
-    fontWeight: "bold"
-  }
 };
 
 export default AnalyticsDashboard;

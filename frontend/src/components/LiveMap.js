@@ -24,91 +24,136 @@ function RecenterMap({ position }) {
   return null;
 }
 
-/* 🛣️ Routing Control Component */
+/* 🛣️ Routing Control Component with improved error handling */
 function RoutingMachine({ start, end, onRouteReady, onRouteError }) {
   const map = useMap();
   const routingControlRef = useRef(null);
 
   useEffect(() => {
-    if (!start || !end || !map) return;
+    // Add null check for map
+    if (!start || !end || !map || !map.getContainer()) return;
 
-    // Remove existing routing control
-    if (routingControlRef.current) {
-      map.removeControl(routingControlRef.current);
-    }
+    // Wait for map to be ready
+    setTimeout(() => {
+      try {
+        // Remove existing routing control safely
+        try {
+          if (routingControlRef.current) {
+            try {
+              map.removeControl(routingControlRef.current);
+            } catch (e) {
+              // Control might already be removed, ignore error
+              console.warn("Error removing routing control:", e);
+            }
+          }
+        } catch (e) {
+          console.warn("Error accessing map for cleanup:", e);
+        }
 
-    // Create new routing control
-    const routingControl = L.Routing.control({
-      waypoints: [
-        L.latLng(start[0], start[1]),
-        L.latLng(end[0], end[1])
-      ],
-      routeWhileDragging: false,
-      showAlternatives: true,
-      altLineOptions: {
-        styles: [
-          { color: 'black', opacity: 0.15, weight: 9 },
-          { color: 'white', opacity: 0.8, weight: 6 },
-          { color: 'blue', opacity: 0.5, weight: 2 }
-        ]
-      },
-      lineOptions: {
-        styles: [
-          { color: 'green', opacity: 0.8, weight: 6 }
-        ]
-      },
-      createMarker: function() { return null; }, // Don't create default markers
-      addWaypoints: false,
-      draggableWaypoints: false,
-      fitSelectedRoutes: true,
-      showInstructions: false
-    });
+        // Create new routing control with error handling
+        const routingControl = L.Routing.control({
+          waypoints: [
+            L.latLng(start[0], start[1]),
+            L.latLng(end[0], end[1])
+          ],
+          routeWhileDragging: false,
+          showAlternatives: false,
+          lineOptions: {
+            styles: [
+              { color: '#4ecca3', opacity: 0.8, weight: 6 }
+            ]
+          },
+          createMarker: function() { return null; },
+          addWaypoints: false,
+          draggableWaypoints: false,
+          fitSelectedRoutes: true,
+          showInstructions: false,
+          // Hide the routing container to avoid display issues
+          container: null
+        });
 
-    routingControl.addTo(map);
-    routingControlRef.current = routingControl;
+        try {
+          routingControl.addTo(map);
+          routingControlRef.current = routingControl;
+        } catch (e) {
+          console.error("Error adding routing control:", e);
+          if (onRouteError) {
+            onRouteError(new Error("Unable to calculate route"));
+          }
+          return;
+        }
 
-    // Listen for route calculation
-    routingControl.on('routesfound', function(e) {
-      const routes = e.routes;
-      if (routes && routes.length > 0) {
-        const summary = routes[0].summary;
-        const distanceKm = (summary.totalDistance / 1000).toFixed(1);
-        const timeMinutes = Math.round(summary.totalTime / 60);
-        
-        if (onRouteReady) {
-          onRouteReady({
-            distance: distanceKm,
-            time: timeMinutes,
-            instructions: routes[0].instructions
-          });
+        // Listen for route calculation
+        routingControl.on('routesfound', function(e) {
+          const routes = e.routes;
+          if (routes && routes.length > 0) {
+            const summary = routes[0].summary;
+            const distanceKm = (summary.totalDistance / 1000).toFixed(1);
+            const timeMinutes = Math.round(summary.totalTime / 60);
+            
+            if (onRouteReady) {
+              onRouteReady({
+                distance: distanceKm,
+                time: timeMinutes,
+                instructions: routes[0].instructions || []
+              });
+            }
+          }
+        });
+
+        routingControl.on('routingerror', function(e) {
+          console.error('Routing error:', e);
+          if (onRouteError) {
+            onRouteError(new Error("Route calculation failed"));
+          }
+        });
+
+      } catch (e) {
+        console.error("Error in routing setup:", e);
+        if (onRouteError) {
+          onRouteError(e);
         }
       }
-    });
-
-    routingControl.on('routingerror', function(e) {
-      console.error('Routing error:', e);
-      if (onRouteError) {
-        onRouteError(e);
-      }
-    });
+    }, 500); // Small delay to ensure map is fully ready
 
     return () => {
-      if (routingControlRef.current && map) {
-        map.removeControl(routingControlRef.current);
+      // Safely remove control on cleanup
+      try {
+        if (routingControlRef.current && map && map.getContainer()) {
+          try {
+            map.removeControl(routingControlRef.current);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }
+      } catch (e) {
+        // Ignore cleanup errors
       }
     };
-  }, [start, end, map]);
+  }, [start, end, map, onRouteReady, onRouteError]);
 
   return null;
 }
 
-const LiveMap = () => {
+const LiveMap = ({ darkMode = true }) => {
   const [position, setPosition] = useState(null);
   const [places, setPlaces] = useState([]);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
   const [showDirections, setShowDirections] = useState(false);
   const [routingEnabled, setRoutingEnabled] = useState(false);
+  const [routeError, setRouteError] = useState(null);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+
+  // Theme colors
+  const theme = {
+    bg: darkMode ? "#1a1a2e" : "#ffffff",
+    text: darkMode ? "#eee" : "#333",
+    textSecondary: darkMode ? "#aaa" : "#666",
+    panelBg: darkMode ? "#16213e" : "#f5f5f5",
+    border: darkMode ? "#2a2a4a" : "#ddd",
+    accent: "#4ecca3"
+  };
 
   /* 📍 Get Current Location */
   useEffect(() => {
@@ -190,6 +235,8 @@ const LiveMap = () => {
     setSelectedPlace(place);
     setRoutingEnabled(true);
     setRouteInfo(null);
+    setRouteError(null);
+    setIsLoadingRoute(true);
     
     const placeName = place.tags?.name || "this location";
     speak(`Calculating route to ${placeName}`);
@@ -201,41 +248,79 @@ const LiveMap = () => {
     setRoutingEnabled(false);
     setRouteInfo(null);
     setShowDirections(false);
+    setRouteError(null);
     speak("Route cleared");
   };
 
   /* 📖 Handle Route Ready */
   const handleRouteReady = (info) => {
+    setIsLoadingRoute(false);
     setRouteInfo(info);
+    setRouteError(null);
     const placeName = selectedPlace?.tags?.name || "destination";
     speak(`Route to ${placeName} found. ${info.distance} kilometers, approximately ${info.time} minutes.`);
   };
 
+  /* 📖 Handle Route Error */
+  const handleRouteError = (error) => {
+    setIsLoadingRoute(false);
+    console.error("Route error:", error);
+    // Provide a user-friendly message instead of the technical error
+    setRouteError("Unable to find a route. Please check your internet connection and try again.");
+    speak("Sorry, I couldn't find a route to this location. Please try another destination.");
+  };
+
   /* 📖 Toggle Directions Panel */
   const toggleDirections = () => {
+    if (!routeInfo || !routeInfo.instructions || routeInfo.instructions.length === 0) {
+      setRouteError("No directions available. Please select a route first.");
+      return;
+    }
     setShowDirections(!showDirections);
   };
 
   if (!position) {
-    return <p style={{ textAlign: "center" }}>📍 Getting your location...</p>;
+    return (
+      <div style={{ 
+        textAlign: "center", 
+        padding: "20px",
+        backgroundColor: theme.panelBg,
+        borderRadius: "12px",
+        color: theme.text
+      }}>
+        <p style={{ color: theme.textSecondary }}>📍 Getting your location...</p>
+      </div>
+    );
   }
 
   return (
     <div style={{ width: "100%" }}>
       {/* Route Control Panel */}
-      <div style={styles.controlPanel}>
-        <h3 style={{ margin: "0 0 10px 0" }}>🛣️ Safe Route Finder</h3>
+      <div style={{
+        ...styles.controlPanel,
+        backgroundColor: theme.panelBg,
+        border: `1px solid ${theme.border}`
+      }}>
+        <h3 style={{ margin: "0 0 10px 0", color: theme.accent, fontSize: "18px", fontWeight: "bold" }}>🛣️ Safe Route Finder</h3>
         
         {places.length > 0 ? (
-          <div style={styles.placeList}>
-            <p style={{ margin: "0 0 10px 0", fontSize: "14px", color: "#666" }}>
+          <div style={{
+            ...styles.placeList,
+            backgroundColor: theme.bg,
+            border: `1px solid ${theme.border}`
+          }}>
+            <p style={{ margin: "0 0 10px 0", fontSize: "14px", color: theme.textSecondary }}>
               Select a destination to get directions:
             </p>
             {places.slice(0, 5).map((place, index) => {
               if (!place.tags) return null;
               return (
-                <div key={index} style={styles.placeItem}>
-                  <span style={{ fontSize: "12px" }}>
+                <div key={index} style={{
+                  ...styles.placeItem,
+                  backgroundColor: theme.panelBg,
+                  borderBottom: `1px solid ${theme.border}`
+                }}>
+                  <span style={{ fontSize: "13px", color: theme.text }}>
                     {place.tags.amenity === "hospital" && "🏥 "}
                     {place.tags.amenity === "pharmacy" && "💊 "}
                     {place.tags.amenity === "police" && "👮 "}
@@ -243,7 +328,11 @@ const LiveMap = () => {
                   </span>
                   <button
                     onClick={() => handleGetRoute(place)}
-                    style={styles.routeBtn}
+                    style={{
+                      ...styles.routeBtn,
+                      backgroundColor: theme.accent,
+                      color: "#1a1a2e"
+                    }}
                   >
                     🛣️ Route
                   </button>
@@ -251,27 +340,72 @@ const LiveMap = () => {
               );
             })}
           </div>
-        ) : (
-          <p style={{ fontSize: "14px", color: "#666" }}>
+          ) : (
+          <p style={{ fontSize: "14px", color: theme.textSecondary }}>
             Searching for nearby safe places...
           </p>
         )}
 
-        {routeInfo && (
-          <div style={styles.routeInfo}>
+        {isLoadingRoute && (
+          <div style={{
+            marginTop: "12px",
+            padding: "14px",
+            backgroundColor: theme.bg,
+            borderRadius: "8px",
+            textAlign: "center",
+            color: theme.accent,
+            border: `1px solid ${theme.accent}`
+          }}>
+            ⏳ Calculating route...
+          </div>
+        )}
+
+        {routeInfo && !isLoadingRoute && (
+          <div style={{
+            ...styles.routeInfo,
+            backgroundColor: theme.bg,
+            border: `1px solid ${theme.accent}`,
+            color: theme.text
+          }}>
             <strong>📏 Distance:</strong> {routeInfo.distance} km<br />
             <strong>⏱️ Est. Time:</strong> {routeInfo.time} min
           </div>
         )}
 
-        {routeInfo && (
-          <button onClick={toggleDirections} style={styles.directionsToggle}>
+        {routeInfo && !isLoadingRoute && (
+          <button onClick={toggleDirections} style={{
+            ...styles.directionsToggle,
+            backgroundColor: theme.accent,
+            color: "#1a1a2e"
+          }}>
             {showDirections ? "🔼 Hide Directions" : "🔽 Show Directions"}
           </button>
         )}
 
+        {/* Error Display - Improved */}
+        {routeError && (
+          <div style={{
+            marginTop: "10px",
+            padding: "12px",
+            backgroundColor: darkMode ? "#3d1a1a" : "#ffe6e6",
+            border: "1px solid #e84545",
+            borderRadius: "6px",
+            fontSize: "13px",
+            color: darkMode ? "#ff6b6b" : "#cc0000",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+          }}>
+            <span style={{ fontSize: "18px" }}>⚠️</span>
+            <span>{routeError}</span>
+          </div>
+        )}
+
         {routingEnabled && (
-          <button onClick={handleClearRoute} style={styles.clearBtn}>
+          <button onClick={handleClearRoute} style={{
+            ...styles.clearBtn,
+            backgroundColor: "#e84545"
+          }}>
             ❌ Clear Route
           </button>
         )}
@@ -279,15 +413,32 @@ const LiveMap = () => {
 
       {/* Directions Panel */}
       {showDirections && routeInfo && routeInfo.instructions && (
-        <div style={styles.directionsPanel}>
-          <h4 style={{ margin: "0 0 10px 0" }}>📝 Turn-by-Turn Directions</h4>
+        <div style={{
+          ...styles.directionsPanel,
+          backgroundColor: theme.panelBg,
+          border: `1px solid ${theme.border}`
+        }}>
+          <h4 style={{ margin: "0 0 10px 0", color: theme.accent, fontSize: "16px" }}>📝 Turn-by-Turn Directions</h4>
           <div style={styles.instructionsList}>
             {routeInfo.instructions.map((instruction, index) => {
               if (instruction.type === 'Straight' || instruction.type === 'DestinationReached') {
-                return null; // Skip minor instructions
+                return (
+                  <div key={index} style={{
+                    ...styles.instruction,
+                    borderBottom: `1px solid ${theme.border}`
+                  }}>
+                    <span style={styles.instructionType}>📍</span>
+                    <span style={{...styles.instructionText, color: theme.text}}>
+                      {instruction.text || "Continue to destination"}
+                    </span>
+                  </div>
+                );
               }
               return (
-                <div key={index} style={styles.instruction}>
+                <div key={index} style={{
+                  ...styles.instruction,
+                  borderBottom: `1px solid ${theme.border}`
+                }}>
                   <span style={styles.instructionType}>
                     {instruction.type === 'Turn right' && '➡️'}
                     {instruction.type === 'Turn left' && '⬅️'}
@@ -296,11 +447,11 @@ const LiveMap = () => {
                     {instruction.type === 'Exit' && '🚪'}
                     {!['Turn right', 'Turn left', 'Roundabout', 'Merge', 'Exit'].includes(instruction.type) && '➡️'}
                   </span>
-                  <span style={styles.instructionText}>
+                  <span style={{...styles.instructionText, color: theme.text}}>
                     {instruction.text}
                   </span>
                   {instruction.distance && (
-                    <span style={styles.instructionDistance}>
+                    <span style={{...styles.instructionDistance, color: theme.accent}}>
                       ({Math.round(instruction.distance)}m)
                     </span>
                   )}
@@ -367,6 +518,7 @@ const LiveMap = () => {
               start={position}
               end={[selectedPlace.lat, selectedPlace.lon]}
               onRouteReady={handleRouteReady}
+              onRouteError={handleRouteError}
             />
           )}
         </MapContainer>
@@ -378,90 +530,101 @@ const LiveMap = () => {
 /* 🎨 Styles */
 const styles = {
   controlPanel: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#1a1a2e",
     padding: "15px",
-    borderRadius: "8px",
+    borderRadius: "12px",
     marginBottom: "10px",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+    boxShadow: "0 4px 15px rgba(0,0,0,0.3)",
+    border: "1px solid #16213e"
   },
   placeList: {
-    maxHeight: "150px",
-    overflowY: "auto"
+    maxHeight: "180px",
+    overflowY: "auto",
+    backgroundColor: "#16213e",
+    borderRadius: "8px",
+    padding: "10px"
   },
   placeItem: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "8px",
-    borderBottom: "1px solid #eee",
-    gap: "10px"
+    padding: "10px",
+    borderRadius: "6px",
+    marginBottom: "5px"
   },
   routeBtn: {
-    backgroundColor: "#28a745",
-    color: "white",
+    backgroundColor: "#4ecca3",
+    color: "#1a1a2e",
     border: "none",
-    padding: "5px 10px",
-    borderRadius: "4px",
+    padding: "6px 12px",
+    borderRadius: "6px",
     cursor: "pointer",
     fontSize: "12px",
-    whiteSpace: "nowrap"
+    whiteSpace: "nowrap",
+    fontWeight: "bold"
   },
   routeInfo: {
-    marginTop: "10px",
-    padding: "10px",
-    backgroundColor: "#e7f3e7",
-    borderRadius: "4px",
+    marginTop: "12px",
+    padding: "14px",
+    backgroundColor: "#16213e",
+    borderRadius: "8px",
     fontSize: "14px"
   },
   directionsToggle: {
     marginTop: "10px",
-    padding: "8px 15px",
-    backgroundColor: "#007bff",
-    color: "white",
+    padding: "10px 15px",
+    backgroundColor: "#4ecca3",
+    color: "#1a1a2e",
     border: "none",
-    borderRadius: "4px",
+    borderRadius: "6px",
     cursor: "pointer",
-    width: "100%"
+    width: "100%",
+    fontWeight: "bold",
+    fontSize: "14px"
   },
   clearBtn: {
     marginTop: "10px",
-    padding: "8px 15px",
-    backgroundColor: "#dc3545",
+    padding: "10px 15px",
+    backgroundColor: "#e84545",
     color: "white",
     border: "none",
-    borderRadius: "4px",
+    borderRadius: "6px",
     cursor: "pointer",
-    width: "100%"
+    width: "100%",
+    fontWeight: "bold",
+    fontSize: "14px"
   },
   directionsPanel: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#1a1a2e",
     padding: "15px",
-    borderRadius: "8px",
+    borderRadius: "12px",
     marginBottom: "10px",
-    maxHeight: "200px",
+    maxHeight: "250px",
     overflowY: "auto",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+    boxShadow: "0 4px 15px rgba(0,0,0,0.3)"
   },
   instructionsList: {
-    fontSize: "13px"
+    fontSize: "13px",
+    color: "#ccc"
   },
   instruction: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
-    padding: "6px 0",
-    borderBottom: "1px solid #eee"
+    gap: "10px",
+    padding: "10px 0"
   },
   instructionType: {
-    fontSize: "16px",
-    minWidth: "25px"
+    fontSize: "18px",
+    minWidth: "30px"
   },
   instructionText: {
-    flex: 1
+    flex: 1,
+    color: "#eee"
   },
   instructionDistance: {
-    color: "#666",
-    fontSize: "12px"
+    color: "#4ecca3",
+    fontSize: "12px",
+    fontWeight: "bold"
   }
 };
 

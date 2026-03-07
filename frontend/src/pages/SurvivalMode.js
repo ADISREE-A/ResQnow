@@ -9,13 +9,23 @@ import EvidenceRecorder from "../components/EvidenceRecorder";
 import AIChatbot from "../components/AIChatbot";
 import { speak } from "../utils/voice";
 
-const SurvivalMode = () => {
+const SurvivalMode = ({ darkMode = true, toggleTheme }) => {
   const [panicActivated, setPanicActivated] = useState(false);
   const [currentHazard, setCurrentHazard] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [showAllContacts, setShowAllContacts] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [nearbyDanger, setNearbyDanger] = useState(null);
   const [hazards, setHazards] = useState([]);
+
+  // Dynamic styles based on theme
+  const theme = {
+    bg: darkMode ? "#0d0d0d" : "#f5f5f5",
+    text: darkMode ? "#ffffff" : "#333333",
+    panelBg: darkMode ? "#111111" : "#ffffff",
+    border: darkMode ? "#333333" : "#cccccc",
+    accent: darkMode ? "#4ecca3" : "#2196F3"
+  };
 
   /* Get user location and check for nearby dangers */
   useEffect(() => {
@@ -144,11 +154,37 @@ const SurvivalMode = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={{...styles.container, backgroundColor: darkMode ? "#0d0d0d" : "#f5f5f5", color: darkMode ? "white" : "#333"}}>
+      
+      {/* 🎨 Theme Toggle Button */}
+      {toggleTheme && (
+        <button
+          onClick={toggleTheme}
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            width: "50px",
+            height: "50px",
+            borderRadius: "50%",
+            backgroundColor: darkMode ? "#4ecca3" : "#2196F3",
+            color: darkMode ? "#000" : "#fff",
+            border: "none",
+            fontSize: "24px",
+            cursor: "pointer",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+            zIndex: 1000
+          }}
+          title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        >
+          {darkMode ? "☀️" : "🌙"}
+        </button>
+      )}
+
       {/* HEADER */}
-      <div style={styles.header}>
-        <h1>🚨 Survival Mode</h1>
-        <p>{panicActivated ? "Emergency Active" : "Press Panic if in danger"}</p>
+      <div style={{...styles.header, color: darkMode ? "white" : "#333"}}>
+        <h1 style={{color: darkMode ? "white" : "#333"}}>🚨 Survival Mode</h1>
+        <p style={{color: darkMode ? "#ccc" : "#666"}}>{panicActivated ? "Emergency Active" : "Press Panic if in danger"}</p>
 
         <button onClick={handlePanic} style={styles.panicBtn}>
           🚨 PANIC
@@ -162,6 +198,24 @@ const SurvivalMode = () => {
           <LiveMap />
 
           <EvidenceRecorder />
+          {/* DANGER ZONE MAP SECTION */}
+      <div style={{ marginTop: "20px" }}>
+        <h2 style={{ marginBottom: "15px" }}>🔥 Danger Zones Nearby</h2>
+        <DangerZoneMap 
+          height="400px" 
+          showLegend={true} 
+          userLocation={userLocation}
+          dangerWarning={nearbyDanger}
+        />
+      </div>
+      {/* Floating Emergency Contact Button */}
+      <button
+        onClick={() => setShowAllContacts(true)}
+        style={styles.floatingContactBtn}
+        title="View All Emergency Contacts"
+      >
+        📞 Contacts
+      </button>
         </div>
 
         {/* RIGHT SIDE */}
@@ -171,8 +225,8 @@ const SurvivalMode = () => {
 {/* Proper Hazard Selection */}
           <HazardReport onHazardSelect={(hazard) => setCurrentHazard(hazard)} />
 
-          {/* Emergency Contacts */}
-          <EmergencyContacts />
+          {/* Emergency Contacts
+          <EmergencyContacts /> */}
 
           <button
             onClick={() => setShowHistory(true)}
@@ -183,24 +237,34 @@ const SurvivalMode = () => {
         </div>
       </div>
 
-      {/* DANGER ZONE MAP SECTION */}
-      <div style={{ marginTop: "20px" }}>
-        <h2 style={{ marginBottom: "15px" }}>🔥 Danger Zones Nearby</h2>
-        <DangerZoneMap 
-          height="400px" 
-          showLegend={true} 
-          userLocation={userLocation}
-          dangerWarning={nearbyDanger}
-        />
-      </div>
+      
 
       {/* HISTORY MODAL */}
       {showHistory && (
         <HazardHistory onClose={() => setShowHistory(false)} />
       )}
 
+      {/* Emergency Contacts Modal - Shows All Contacts */}
+      {showAllContacts && (
+        <div style={styles.modalOverlay} onClick={() => setShowAllContacts(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2>📞 All Emergency Contacts</h2>
+              <button 
+                onClick={() => setShowAllContacts(false)}
+                style={styles.closeBtn}
+              >
+                ✕
+              </button>
+            </div>
+            <EmergencyContacts showAll={true} />
+          </div>
+        </div>
+      )}
+
       {/* AI CHATBOT */}
       <AIChatbot currentHazard={currentHazard} userLocation={userLocation} />
+
     </div>
   );
 };
@@ -252,6 +316,61 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "20px"
+  },
+  floatingContactBtn: {
+    position: "fixed",
+    bottom: "30px",
+    right: "30px",
+    padding: "15px 25px",
+    fontSize: "16px",
+    backgroundColor: "#4da6ff",
+    color: "white",
+    border: "none",
+    borderRadius: "30px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    boxShadow: "0 4px 15px rgba(77, 166, 255, 0.4)",
+    zIndex: 1000
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2000,
+    padding: "20px"
+  },
+  modalContent: {
+    backgroundColor: "#1a1a1a",
+    borderRadius: "15px",
+    padding: "20px",
+    maxWidth: "600px",
+    width: "100%",
+    maxHeight: "90vh",
+    overflowY: "auto"
+  },
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "15px",
+    borderBottom: "1px solid #333",
+    paddingBottom: "10px"
+  },
+  closeBtn: {
+    background: "none",
+    border: "1px solid #ff6b6b",
+    color: "#ff6b6b",
+    width: "30px",
+    height: "30px",
+    borderRadius: "50%",
+    cursor: "pointer",
+    fontSize: "16px"
   }
 };
 
