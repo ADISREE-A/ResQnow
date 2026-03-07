@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import DangerZoneMap from "./DangerZoneMap";
 
 const AdminDashboard = () => {
 
@@ -166,6 +167,14 @@ const AdminDashboard = () => {
           <h3>Critical Cases</h3>
           <h1 style={{ color: "red" }}>{critical}</h1>
         </div>
+      </div>
+
+      {/* ===============================
+           DANGER ZONE HEATMAP
+      ================================= */}
+      <div style={{ marginBottom: "30px" }}>
+        <h2 style={{ marginBottom: "15px" }}>🔥 Danger Zone Heatmap</h2>
+        <DangerZoneMap height="400px" showLegend={true} />
       </div>
 
       {/* ===============================

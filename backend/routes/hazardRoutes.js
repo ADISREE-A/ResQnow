@@ -126,6 +126,178 @@ router.put("/update-status/:caseId", async (req, res) => {
 });
 
 /* ===============================
+   🔹 Assign Officer to Case
+================================= */
+router.put("/assign-officer/:caseId", async (req, res) => {
+  const { officer_name, officer_id, assigned_by } = req.body;
+  const { caseId } = req.params;
+
+  if (!officer_name) {
+    return res.status(400).json({ error: "Officer name is required" });
+  }
+
+  try {
+    const sql = `
+      UPDATE hazards 
+      SET assigned_officer = ?, officer_id = ?, assigned_by = ?, updated_at = NOW()
+      WHERE case_id = ?
+    `;
+
+    await db.promise().query(sql, [officer_name, officer_id || null, assigned_by || null, caseId]);
+
+    const [updated] = await db.promise().query(
+      "SELECT * FROM hazards WHERE case_id = ?",
+      [caseId]
+    );
+
+    res.json({
+      message: "Officer assigned successfully",
+      assigned_by: assigned_by || "Self-assigned",
+      data: updated[0]
+    });
+
+  } catch (err) {
+    console.error("Assign Error:", err);
+    res.status(500).json({ error: "Failed to assign officer" });
+  }
+});
+
+/* ===============================
+   🔹 Generate Report & Close Case
+================================= */
+router.put("/generate-report/:caseId", async (req, res) => {
+  const { caseId } = req.params;
+  const { resolution_notes, actions_taken } = req.body;
+
+  try {
+    // Get the case details first
+    const [caseData] = await db.promise().query(
+      "SELECT * FROM hazards WHERE case_id = ?",
+      [caseId]
+    );
+
+    if (caseData.length === 0) {
+      return res.status(404).json({ error: "Case not found" });
+    }
+
+    const hazard = caseData[0];
+
+    // Generate report content
+    const report = {
+      case_id: hazard.case_id,
+      generated_at: new Date().toISOString(),
+      case_details: {
+        type: hazard.type,
+        severity: hazard.severity,
+        auto_severity: hazard.auto_severity,
+        risk_score: hazard.risk_score,
+        risk_level: hazard.risk_level,
+        location: {
+          latitude: hazard.latitude,
+          longitude: hazard.longitude
+        },
+        description: hazard.description,
+        reported_by: hazard.username,
+        created_at: hazard.created_at
+      },
+      assigned_officer: hazard.assigned_officer,
+      status: "Closed",
+      resolution: {
+        resolution_notes: resolution_notes || "Case resolved",
+        actions_taken: actions_taken || "Standard investigation completed",
+        closed_at: new Date().toISOString()
+      },
+      incident_summary: `${hazard.type} incident at location (${hazard.latitude}, ${hazard.longitude}). Risk level: ${hazard.risk_level}. Case was assigned to ${hazard.assigned_officer || 'unassigned'}.`
+    };
+
+    // Update the case with report and close it
+    const sql = `
+      UPDATE hazards 
+      SET status = 'Closed', 
+          report = ?, 
+          resolution_notes = ?,
+          updated_at = NOW()
+      WHERE case_id = ?
+    `;
+
+    await db.promise().query(sql, [
+      JSON.stringify(report),
+      resolution_notes || "Case resolved",
+      caseId
+    ]);
+
+    const [updated] = await db.promise().query(
+      "SELECT * FROM hazards WHERE case_id = ?",
+      [caseId]
+    );
+
+    res.json({
+      message: "Report generated and case closed successfully",
+      report: report,
+      data: updated[0]
+    });
+
+  } catch (err) {
+    console.error("Generate Report Error:", err);
+    res.status(500).json({ error: "Failed to generate report" });
+  }
+});
+
+/* ===============================
+   🔹 Get Police Cases (for specific officer)
+================================= */
+router.get("/police-cases", (req, res) => {
+  const { officer_id, officer_name } = req.query;
+  
+  let sql = "SELECT * FROM hazards WHERE 1=1";
+  const params = [];
+
+  if (officer_name) {
+    sql += " AND assigned_officer = ?";
+    params.push(officer_name);
+  }
+
+  if (officer_id) {
+    sql += " AND officer_id = ?";
+    params.push(officer_id);
+  }
+
+  sql += " ORDER BY created_at DESC";
+
+  db.query(sql, params, (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+/* ===============================
+   🔹 Get My Assigned Cases
+================================= */
+router.get("/my-cases", (req, res) => {
+  const { officer_name } = req.query;
+  
+  if (!officer_name) {
+    return res.status(400).json({ error: "Officer name required" });
+  }
+
+  const sql = `
+    SELECT * FROM hazards 
+    WHERE assigned_officer = ?
+    ORDER BY 
+      CASE status 
+        WHEN 'Open' THEN 1 
+        WHEN 'Closed' THEN 2 
+      END,
+      created_at DESC
+  `;
+
+  db.query(sql, [officer_name], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+/* ===============================
    🔹 Analytics Endpoints
 ================================= */
 

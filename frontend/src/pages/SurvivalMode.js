@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import LiveMap from "../components/LiveMap";
+import DangerZoneMap from "../components/DangerZoneMap";
 import EmergencyChat from "../components/EmergencyChat";
 import HazardReport from "../components/HazardReport";
 import HazardHistory from "../components/HazardHistory";
@@ -10,6 +11,59 @@ const SurvivalMode = () => {
   const [panicActivated, setPanicActivated] = useState(false);
   const [currentHazard, setCurrentHazard] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [nearbyDanger, setNearbyDanger] = useState(null);
+  const [hazards, setHazards] = useState([]);
+
+  /* Get user location and check for nearby dangers */
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const loc = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        setUserLocation(loc);
+        checkNearbyDangers(loc);
+      },
+      (err) => console.error("Location error:", err),
+      { enableHighAccuracy: true }
+    );
+
+    // Also fetch hazards
+    fetch("http://localhost:5000/api/hazards/all")
+      .then(res => res.json())
+      .then(data => setHazards(data))
+      .catch(err => console.error(err));
+  }, []);
+
+  /* Check if user is near any danger zone */
+  const checkNearbyDangers = (location) => {
+    const dangerThreshold = 0.01; // ~1km
+
+    hazards.forEach(hazard => {
+      const latDiff = Math.abs(hazard.latitude - location.lat);
+      const lngDiff = Math.abs(hazard.longitude - location.lng);
+
+      if (latDiff < dangerThreshold && lngDiff < dangerThreshold) {
+        if (hazard.risk_level === "Critical" || hazard.risk_level === "High") {
+          setNearbyDanger(`Warning! ${hazard.risk_level} risk zone nearby: ${hazard.type}`);
+          
+          // Voice warning
+          speak(`Warning. You are approaching a ${hazard.risk_level.toLowerCase()} danger zone. ${hazard.type} reported in this area.`);
+        }
+      }
+    });
+  };
+
+  /* Re-check dangers when hazards change */
+  useEffect(() => {
+    if (userLocation) {
+      checkNearbyDangers(userLocation);
+    }
+  }, [hazards, userLocation]);
 
   /* 🧠 Hazard-based Guidance */
   const getHazardGuidance = (type) => {
@@ -104,6 +158,8 @@ const SurvivalMode = () => {
         {/* MAP */}
         <div style={styles.leftPanel}>
           <LiveMap />
+
+          <EvidenceRecorder />
         </div>
 
         {/* RIGHT SIDE */}
@@ -122,7 +178,16 @@ const SurvivalMode = () => {
         </div>
       </div>
 
-      <EvidenceRecorder />
+      {/* DANGER ZONE MAP SECTION */}
+      <div style={{ marginTop: "20px" }}>
+        <h2 style={{ marginBottom: "15px" }}>🔥 Danger Zones Nearby</h2>
+        <DangerZoneMap 
+          height="400px" 
+          showLegend={true} 
+          userLocation={userLocation}
+          dangerWarning={nearbyDanger}
+        />
+      </div>
 
       {/* HISTORY MODAL */}
       {showHistory && (

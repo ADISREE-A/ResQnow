@@ -1,8 +1,11 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import AdminDashboard from "../components/AdminDashboard";
 import EvidenceList from "../components/EvidenceList";
 
 const AdminPage = () => {
+  const navigate = useNavigate();
+  
   return (
     <div style={styles.container}>
       
@@ -10,6 +13,31 @@ const AdminPage = () => {
       <div style={styles.header}>
         <h1>🛡 Admin Control Panel</h1>
         <p>Real-time emergency monitoring & risk analysis</p>
+        
+        {/* Navigation Buttons */}
+        <div style={styles.navButtons}>
+          <button 
+            onClick={() => navigate("/admin")} 
+            style={styles.navBtn}
+          >
+            📊 Dashboard
+          </button>
+          <button 
+            onClick={() => navigate("/analytics")} 
+            style={{...styles.navBtn, backgroundColor: "#4da6ff"}}
+          >
+            📈 Analytics
+          </button>
+          <button 
+            onClick={() => {
+              localStorage.removeItem("adminAuth");
+              window.location.href = "/admin-login";
+            }} 
+            style={{...styles.navBtn, backgroundColor: "#ff4444"}}
+          >
+            🚪 Logout
+          </button>
+        </div>
       </div>
 
       {/* 🔹 Dashboard Section */}
@@ -40,6 +68,24 @@ const styles = {
   header: {
     textAlign: "center",
     marginBottom: "40px"
+  },
+
+  navButtons: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "15px",
+    marginTop: "20px"
+  },
+
+  navBtn: {
+    padding: "10px 25px",
+    backgroundColor: "#333",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "bold"
   },
 
   section: {

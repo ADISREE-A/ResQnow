@@ -5,6 +5,8 @@ import Home from "./pages/Home";
 import SurvivalMode from "./pages/SurvivalMode";
 import AdminPage from "./pages/AdminPage";
 import AdminLogin from "./pages/AdminLogin";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+import PolicePage from "./pages/PolicePage";
 
 /* 🔐 Protected Route Component */
 function ProtectedRoute({ isLoggedIn, children }) {
@@ -17,19 +19,32 @@ function ProtectedRoute({ isLoggedIn, children }) {
 function App() {
 
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [isPoliceLoggedIn, setIsPoliceLoggedIn] = useState(false);
 
   /* 🔄 Sync with localStorage on load */
   useEffect(() => {
-    const storedAuth = localStorage.getItem("adminAuth");
-    if (storedAuth === "true") {
+    const storedAdminAuth = localStorage.getItem("adminAuth");
+    const storedPoliceAuth = localStorage.getItem("policeAuth");
+    
+    if (storedAdminAuth === "true") {
       setIsAdminLoggedIn(true);
+    }
+    if (storedPoliceAuth === "true") {
+      setIsPoliceLoggedIn(true);
     }
   }, []);
 
-  /* 🚪 Logout Function */
-  const handleLogout = () => {
+  /* 🚪 Logout Function for Admin */
+  const handleAdminLogout = () => {
     localStorage.removeItem("adminAuth");
     setIsAdminLoggedIn(false);
+  };
+
+  /* 🚪 Logout Function for Police */
+  const handlePoliceLogout = () => {
+    localStorage.removeItem("policeAuth");
+    localStorage.removeItem("officerName");
+    setIsPoliceLoggedIn(false);
   };
 
   return (
@@ -46,6 +61,7 @@ function App() {
           element={
             <AdminLogin
               setIsAdminLoggedIn={setIsAdminLoggedIn}
+              setIsPoliceLoggedIn={setIsPoliceLoggedIn}
             />
           }
         />
@@ -55,7 +71,27 @@ function App() {
           path="/admin"
           element={
             <ProtectedRoute isLoggedIn={isAdminLoggedIn}>
-              <AdminPage handleLogout={handleLogout} />
+              <AdminPage handleLogout={handleAdminLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 📊 Analytics Dashboard (Protected - Admin only) */}
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute isLoggedIn={isAdminLoggedIn}>
+              <AnalyticsDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 👮 Police Dashboard (Protected) */}
+        <Route
+          path="/police"
+          element={
+            <ProtectedRoute isLoggedIn={isPoliceLoggedIn}>
+              <PolicePage handleLogout={handlePoliceLogout} />
             </ProtectedRoute>
           }
         />

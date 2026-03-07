@@ -10,6 +10,7 @@ const locationRoutes = require("./routes/locationRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 const hazardRoutes = require("./routes/hazardRoutes");
 const evidenceRoutes = require("./routes/evidenceRoutes");
+const officerRoutes = require("./routes/officerRoutes");
 
 // Message Model
 const { saveMessage, getMessages } = require("./models/MessageModel");
@@ -41,6 +42,7 @@ app.use("/api/emergency", emergencyRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/hazards", hazardRoutes);
 app.use("/api/evidence", evidenceRoutes);
+app.use("/api/officers", officerRoutes);
 
 /* ===============================
    🔹 CREATE HTTP SERVER
