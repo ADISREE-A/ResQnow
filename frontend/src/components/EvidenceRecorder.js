@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 
-const EvidenceRecorder = () => {
+const EvidenceRecorder = ({ caseId }) => {
 
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
@@ -32,6 +32,7 @@ const EvidenceRecorder = () => {
 
         formData.append("latitude", position.coords.latitude);
         formData.append("longitude", position.coords.longitude);
+        formData.append("case_id", caseId); // Send case ID for unified tracking
 
         await fetch("http://localhost:5000/api/evidence/upload", {
           method: "POST",

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-const HazardReport = ({ onHazardReported }) => {
+const HazardReport = ({ caseId, onHazardReported }) => {
 
   const [username, setUsername] = useState("");
   const [type, setType] = useState("");
@@ -42,6 +42,7 @@ const HazardReport = ({ onHazardReported }) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            case_id: caseId,
             username,
             type,
             severity,

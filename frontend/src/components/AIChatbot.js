@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { speak } from "../utils/voice";
 
 // OpenAI API configuration
 const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY || "";
@@ -59,7 +58,6 @@ const AIChatbot = ({ currentHazard, userLocation }) => {
         // Fallback to rule-based responses
         const response = getRuleBasedResponse(userMessage);
         setMessages(prev => [...prev, { role: "assistant", content: response }]);
-        speak(response);
         return;
       }
 
@@ -85,7 +83,6 @@ const AIChatbot = ({ currentHazard, userLocation }) => {
       if (data.choices && data.choices[0]) {
         const aiResponse = data.choices[0].message.content;
         setMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
-        speak(aiResponse);
       } else {
         throw new Error("Invalid API response");
       }

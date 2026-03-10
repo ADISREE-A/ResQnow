@@ -15,7 +15,7 @@ const generateCaseId = () => {
    🔹 POST Hazard (Integrated with Risk Engine)
 ================================= */
 router.post("/report", async (req, res) => {
-  const { username, type, severity, description, location } = req.body;
+  const { case_id, username, type, severity, description, location } = req.body;
 
   if (!location || !location.lat || !location.lng) {
     return res.status(400).json({ error: "Valid location required" });
@@ -30,8 +30,11 @@ router.post("/report", async (req, res) => {
       type
     );
 
+    // Use provided case_id or generate new one (for unified tracking)
+    const finalCaseId = case_id || generateCaseId();
+
     const hazardData = {
-      case_id: generateCaseId(),
+      case_id: finalCaseId,
       username,
       type,
       severity,

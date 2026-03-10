@@ -5,60 +5,98 @@ const AdminLogin = ({ setIsAdminLoggedIn, setIsPoliceLoggedIn }) => {
 
   const [password, setPassword] = useState("");
   const [officerName, setOfficerName] = useState("");
+  const [badgeNumber, setBadgeNumber] = useState("");
   const [loginType, setLoginType] = useState("admin"); // "admin" or "police"
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    const ADMIN_PASSWORD = "resqnow123";
-    const POLICE_PASSWORD = "police123";
+  const handleLogin = async () => {
+    setError("");
+    setLoading(true);
 
     if (loginType === "admin") {
-      if (password === ADMIN_PASSWORD) {
-        localStorage.setItem("adminAuth", "true");
-        localStorage.removeItem("policeAuth"); // Clear police auth if any
-        localStorage.removeItem("officerName");
-        setIsAdminLoggedIn(true);
-        navigate("/admin");
-      } else {
-        setError("Incorrect Admin Password ❌");
+      // Use secure admin API
+      try {
+        const response = await fetch("http://localhost:5000/api/auth/admin/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: officerName || "admin",
+            password: password
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Store token and user info
+          localStorage.setItem("adminAuth", "true");
+          localStorage.setItem("authToken", data.token);
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("username", data.user.username);
+          localStorage.removeItem("policeAuth");
+          localStorage.removeItem("officerName");
+          setIsAdminLoggedIn(true);
+          navigate("/admin");
+        } else {
+          setError(data.error || "Login failed");
+        }
+      } catch (err) {
+        setError("Server error. Please try again.");
+        console.error("Admin login error:", err);
       }
     } else {
-      // Police login
-      if (password === POLICE_PASSWORD) {
-        if (!officerName.trim()) {
-          setError("Please enter your officer name/badge number");
-          return;
+      // Police login - use badge_number + password from API
+      if (!badgeNumber.trim()) {
+        setError("Please enter your badge number");
+        setLoading(false);
+        return;
+      }
+
+      if (!password.trim()) {
+        setError("Please enter your password");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:5000/api/auth/police/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            badge_number: badgeNumber.trim(),
+            password: password
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Store token and user info
+          localStorage.setItem("policeAuth", "true");
+          localStorage.setItem("authToken", data.token);
+          localStorage.setItem("userRole", "police");
+          localStorage.setItem("officerName", data.user.username);
+          localStorage.setItem("officerRank", data.user.rank || "Officer");
+          localStorage.setItem("badgeNumber", data.user.badge_number);
+          localStorage.removeItem("adminAuth");
+          setIsPoliceLoggedIn(true);
+          navigate("/police");
+        } else {
+          setError(data.error || "Invalid credentials");
         }
-        
-        // Get officer details from database to get rank
-        fetch("http://localhost:5000/api/officers")
-          .then(res => res.json())
-          .then(officers => {
-            // Find matching officer by name
-            const officer = officers.find(o => o.officer_name === officerName.trim());
-            const officerRank = officer ? officer.rank : "Officer";
-            
-            localStorage.setItem("policeAuth", "true");
-            localStorage.setItem("officerName", officerName.trim());
-            localStorage.setItem("officerRank", officerRank); // Store rank
-            localStorage.removeItem("adminAuth"); // Clear admin auth if any
-            setIsPoliceLoggedIn(true);
-            navigate("/police");
-          })
-          .catch(err => {
-            // If API fails, still allow login with default rank
-            localStorage.setItem("policeAuth", "true");
-            localStorage.setItem("officerName", officerName.trim());
-            localStorage.setItem("officerRank", "Officer");
-            localStorage.removeItem("adminAuth");
-            setIsPoliceLoggedIn(true);
-            navigate("/police");
-          });
-      } else {
-        setError("Incorrect Police Password ❌");
+      } catch (err) {
+        setError("Server error. Please try again.");
+        console.error("Police login error:", err);
       }
     }
+
+    setLoading(false);
   };
 
   return (
@@ -129,13 +167,31 @@ const AdminLogin = ({ setIsAdminLoggedIn, setIsPoliceLoggedIn }) => {
           </button>
         </div>
 
-        {/* Police: Officer Name Input */}
+        {/* Admin: Username Input */}
+        {loginType === "admin" && (
+          <input
+            type="text"
+            placeholder="Enter Admin Username"
+            value={officerName}
+            onChange={(e) => setOfficerName(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px",
+              marginBottom: "15px",
+              borderRadius: "8px",
+              border: "none",
+              fontSize: "14px"
+            }}
+          />
+        )}
+
+        {/* Police: Badge Number Input */}
         {loginType === "police" && (
           <input
             type="text"
-            placeholder="Enter Officer Name / Badge Number"
-            value={officerName}
-            onChange={(e) => setOfficerName(e.target.value)}
+            placeholder="Enter Badge Number (e.g., OFF001)"
+            value={badgeNumber}
+            onChange={(e) => setBadgeNumber(e.target.value)}
             style={{
               width: "100%",
               padding: "12px",
@@ -152,6 +208,7 @@ const AdminLogin = ({ setIsAdminLoggedIn, setIsPoliceLoggedIn }) => {
           placeholder={loginType === "admin" ? "Enter Admin Password" : "Enter Police Password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
           style={{
             width: "100%",
             padding: "12px",
@@ -174,29 +231,73 @@ const AdminLogin = ({ setIsAdminLoggedIn, setIsPoliceLoggedIn }) => {
 
         <button
           onClick={handleLogin}
+          disabled={loading}
           style={{
             width: "100%",
             padding: "12px",
-            backgroundColor: loginType === "admin" ? "red" : "#1565c0",
+            backgroundColor: loginType === "admin" ? "#d32f2f" : "#1565c0",
             color: "white",
             border: "none",
             borderRadius: "8px",
             fontSize: "16px",
-            cursor: "pointer"
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.7 : 1
           }}
         >
-          {loginType === "admin" ? "Admin Login" : "Police Login"}
+          {loading ? "Logging in..." : (loginType === "admin" ? "Admin Login" : "Police Login")}
         </button>
 
-        {/* Hint for passwords */}
+        {/* Hint for demo credentials */}
         <div style={{
           marginTop: "20px",
           color: "#666",
           fontSize: "12px"
         }}>
           {loginType === "admin" 
-            ? "Hint: resqnow123" 
-            : "Hint: police123 + Officer Name"}
+            ? "Use admin credentials from database" 
+            : "Use badge number + password from officers table"}
+        </div>
+
+        {/* Signup Links */}
+        <div style={{
+          marginTop: "20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px"
+        }}>
+          {loginType === "police" && (
+            <button
+              onClick={() => navigate("/police-signup")}
+              style={{
+                width: "100%",
+                padding: "10px",
+                backgroundColor: "transparent",
+                color: "#4da6ff",
+                border: "1px solid #4da6ff",
+                borderRadius: "8px",
+                fontSize: "14px",
+                cursor: "pointer"
+              }}
+            >
+              👮 Register as Police Officer
+            </button>
+          )}
+          
+          <button
+            onClick={() => navigate("/admin-signup")}
+            style={{
+              width: "100%",
+              padding: "10px",
+              backgroundColor: "transparent",
+              color: "#d32f2f",
+              border: "1px solid #d32f2f",
+              borderRadius: "8px",
+              fontSize: "14px",
+              cursor: "pointer"
+            }}
+          >
+            🛡 Register New Admin
+          </button>
         </div>
 
       </div>

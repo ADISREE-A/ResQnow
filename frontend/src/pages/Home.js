@@ -47,9 +47,9 @@ const Home = ({ darkMode = true, toggleTheme }) => {
         </button>
       )}
 
-      <h1 style={{ color: textColor }}>🚑 ResQNow</h1>
+      <h1 style={{ color: textColor }}>ResQNow</h1>
 
-      {/* 🚨 Panic Button */}
+      {/* 🚨 Panic Button
       <button
         onClick={() => navigate("/survival")}
         style={{
@@ -64,8 +64,8 @@ const Home = ({ darkMode = true, toggleTheme }) => {
           boxShadow: "0 4px 15px rgba(255, 0, 0, 0.4)"
         }}
       >
-        🚨 PANIC
-      </button>
+        🚨SURVIVAL MODE
+      </button> */}
 
       {/* 🛡 Admin Login Button */}
       <button
@@ -82,6 +82,23 @@ const Home = ({ darkMode = true, toggleTheme }) => {
         }}
       >
         🛡 ADMIN LOGIN
+      </button>
+
+      {/* 👤 User Login Button */}
+      <button
+        onClick={() => navigate("/user-login")}
+        style={{
+          width: "200px",
+          height: "60px",
+          backgroundColor: cardBg,
+          color: textColor,
+          fontSize: "16px",
+          border: `2px solid ${borderColor}`,
+          borderRadius: "10px",
+          cursor: "pointer"
+        }}
+      >
+        👤 USER LOGIN
       </button>
 
     </div>

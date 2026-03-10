@@ -5,6 +5,10 @@ import Home from "./pages/Home";
 import SurvivalMode from "./pages/SurvivalMode";
 import AdminPage from "./pages/AdminPage";
 import AdminLogin from "./pages/AdminLogin";
+import AdminSignup from "./pages/AdminSignup";
+import PoliceSignup from "./pages/PoliceSignup";
+import UserLogin from "./pages/UserLogin";
+import UserSignup from "./pages/UserSignup";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import PolicePage from "./pages/PolicePage";
 
@@ -51,12 +55,16 @@ function App() {
   /* 🚪 Logout Function for Admin */
   const handleAdminLogout = () => {
     localStorage.removeItem("adminAuth");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userRole");
     setIsAdminLoggedIn(false);
   };
 
   /* 🚪 Logout Function for Police */
   const handlePoliceLogout = () => {
     localStorage.removeItem("policeAuth");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userRole");
     localStorage.removeItem("officerName");
     setIsPoliceLoggedIn(false);
   };
@@ -101,6 +109,14 @@ function App() {
               }
             />
 
+            {/* 🔐 Admin Signup (Public - for initial admin setup) */}
+            <Route
+              path="/admin-signup"
+              element={
+                <AdminSignup darkMode={darkMode} />
+              }
+            />
+
             {/* 📊 Analytics Dashboard (Protected - Admin only) */}
             <Route
               path="/analytics"
@@ -118,6 +134,30 @@ function App() {
                 <ProtectedRoute isLoggedIn={isPoliceLoggedIn}>
                   <PolicePage handleLogout={handlePoliceLogout} darkMode={darkMode} toggleTheme={toggleTheme} />
                 </ProtectedRoute>
+              }
+            />
+
+            {/* 👮 Public Police Signup */}
+            <Route
+              path="/police-signup"
+              element={
+                <PoliceSignup darkMode={darkMode} />
+              }
+            />
+
+            {/* 👤 User Login */}
+            <Route
+              path="/user-login"
+              element={
+                <UserLogin darkMode={darkMode} />
+              }
+            />
+
+            {/* 👤 User Signup */}
+            <Route
+              path="/user-signup"
+              element={
+                <UserSignup darkMode={darkMode} />
               }
             />
 

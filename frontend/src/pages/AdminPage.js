@@ -126,6 +126,27 @@ const AdminPage = ({ darkMode = true, toggleTheme }) => {
             📈 Analytics
           </button>
           <button 
+            onClick={() => navigate("/admin-signup")} 
+            style={{
+              ...styles.navBtn,
+              backgroundColor: "#d32f2f"
+            }}
+          >
+            🛡 Add Admin
+          </button>
+          <button 
+            onClick={() => {
+              // Trigger the register police modal by dispatching a custom event
+              window.dispatchEvent(new CustomEvent('openRegisterPoliceModal'));
+            }} 
+            style={{
+              ...styles.navBtn,
+              backgroundColor: "#1565c0"
+            }}
+          >
+            👮 Add Police
+          </button>
+          <button 
             onClick={() => {
               localStorage.removeItem("adminAuth");
               window.location.href = "/admin-login";

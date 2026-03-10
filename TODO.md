@@ -1,76 +1,106 @@
-# ResQNow - Implementation Tasks Completed
+# TODO: Signup for Police and Admin Dashboard - COMPLETED
 
-## Task List
-
-### 1. ✅ Add Dark/Light Theme to Dashboards
-- [x] Updated AdminPage.js - Added darkMode prop and theme toggle button
-- [x] Updated PolicePage.js - Added darkMode prop and theme toggle button  
-- [x] Updated AdminDashboard.js - Full darkMode support with theme colors
-- [x] Updated PoliceDashboard.js - Full darkMode support with theme colors
-- [x] Updated AnalyticsDashboard.js - Full darkMode support with theme colors
-- [x] Updated DangerZoneMap.js - Added darkMode prop for map styling
-
-### 2. ✅ Fix Video Analysis
-- [x] Enhanced videoAnalyzer.js with improved emergency detection
-- [x] Added detailed emergency type classification (Medical, Fire, Accident, etc.)
-- [x] Added confidence scoring and severity assessment
-- [x] Added recommended actions based on emergency type
-
-### 3. ✅ Fix LiveMap Direction Error
-- [x] Improved routing machine error handling
-- [x] Added better error display with user-friendly messages
-- [x] Added route loading indicator
-- [x] Fixed directions panel rendering
-- [x] Added theme support for all UI elements
-
-### 4. ✅ Officer Assignment (Already Implemented)
-- [x] Verified officer assignment in PoliceDashboard
-- [x] Verified assign-officer API endpoint in hazardRoutes.js
-- [x] Working: Sergeants and above can assign cases
-
-### 5. ✅ Report Generation (Already Implemented)
-- [x] Verified generate-report API endpoint
-- [x] Verified report modal in PoliceDashboard
-- [x] Working: Reports are generated when case is closed
-
-### 6. ✅ CIA Security Implementation
-- [x] Added Helmet.js for security headers
-- [x] Added Express Rate Limiting (general, auth, emergency)
-- [x] Added Input Sanitization middleware
-- [x] Added Socket.IO rate limiting
-- [x] Added CORS configuration
-- [x] Added message length limits
-- [x] Added health check endpoint
-- [x] Added role validation for socket events
+## Task: Create signup for police and admin dashboard
+- Everything in admin dashboard must be present in police dashboard too
 
 ---
 
-## Summary of Changes
+## Task: User Login for Survival Mode - COMPLETED
 
-### Frontend Changes:
-- AdminPage.js - Dark mode support + theme toggle
-- PolicePage.js - Dark mode support + theme toggle
-- AdminDashboard.js - Full theme integration
-- PoliceDashboard.js - Full theme integration  
-- AnalyticsDashboard.js - Full theme integration
-- DangerZoneMap.js - Theme-aware map styling
-- LiveMap.js - Better error handling + theme support
-- App.js - Props passed correctly to all components
+### Implementation:
+1. **frontend/src/pages/Home.js** - Added "USER LOGIN" button that navigates to `/user-login`
+2. **frontend/src/App.js** - Added routes for `/user-login` and `/user-signup`
+3. **UserLogin.js** - Already redirects to `/survival` on successful login
+4. **UserSignup.js** - Already redirects to `/survival` after successful signup
 
-### Backend Changes:
-- server.js - Added CIA security features:
-  - Helmet.js for security headers
-  - Rate limiting for API endpoints
-  - Input sanitization for XSS/SQL injection prevention
-  - Socket event rate limiting
-  - Message length validation
-- videoAnalyzer.js - Enhanced emergency analysis with detailed recommendations
+### How it works:
+1. User clicks "USER LOGIN" on Home page
+2. User is redirected to `/user-login` page
+3. User enters credentials and clicks Login
+4. On successful login, user is automatically redirected to Survival Mode (`/survival`)
 
-## To Test:
-1. Start backend: `cd backend && node server.js`
-2. Start frontend: `cd frontend && npm start`
-3. Test dark/light theme toggle in all dashboards
-4. Test video analysis in Police Dashboard
-5. Test route directions in Survival Mode LiveMap
-6. Test officer assignment and report generation
+### For new users:
+1. Click "USER LOGIN" → Click "Don't have an account? Sign Up"
+2. Or directly navigate to `/user-signup`
+3. After signup, user is automatically redirected to Survival Mode
+
+---
+
+## Previous Implementation Plan
+
+### Phase 1: Backend - Add Public Admin Signup Endpoint ✅
+- [x] 1.1 Add admin signup route in `backend/routes/authRoutes.js`
+  - Public endpoint: POST /api/auth/admin/signup
+  - No authentication required
+  - Validate required fields: username, email, password
+  - Check for duplicate username/email
+  - Create admin user with hashed password
+
+### Phase 2: Backend - Add Public Police Registration Endpoint ✅
+- [x] 2.1 Add create officer endpoint in `backend/routes/authRoutes.js`
+  - Public endpoint: POST /api/auth/police/signup
+  - No authentication required
+  - Validate required fields: badge_number, officer_name, password
+  - Check for duplicate badge_number
+  - Create officer with hashed password
+
+### Phase 3: Frontend - Create Admin Signup Page ✅
+- [x] 3.1 Updated `frontend/src/pages/AdminSignup.js`
+  - Now uses public API endpoint (no token required)
+  - Clean signup form with admin styling
+  - Fields: username, email, password, confirm password
+  - Success/error handling
+  - Redirects to login after success
+
+### Phase 4: Frontend - Create Police Signup Page ✅
+- [x] 4.1 Created `frontend/src/pages/PoliceSignup.js`
+  - New public signup page for police officers
+  - Fields: badge number, officer name, rank, station, email, password, confirm password
+  - Uses public API endpoint
+  - Success/error handling
+  - Redirects to login after success
+
+### Phase 5: Frontend - Update Routes ✅
+- [x] 5.1 Updated `frontend/src/App.js`
+  - Added route for PoliceSignup page (public)
+  - Made AdminSignup route public (no longer protected)
+  - Both signup pages accessible without login
+
+### Phase 6: Frontend - Add Signup Links to Login Page ✅
+- [x] 6.1 Updated `frontend/src/pages/AdminLogin.js`
+  - Added "Register as Police Officer" button (visible when Police tab is selected)
+  - Added "Register New Admin" button
+  - Links to respective signup pages
+
+## Summary of Changes Made:
+
+### Backend:
+1. **authRoutes.js**: Added two new public endpoints:
+   - `POST /api/auth/admin/signup` - Public admin registration
+   - `POST /api/auth/police/signup` - Public police officer registration
+
+### Frontend:
+1. **AdminSignup.js**: Updated to use public signup endpoint
+2. **PoliceSignup.js**: New page for police registration
+3. **App.js**: Added public routes for both signup pages
+4. **AdminLogin.js**: Added signup links/buttons
+
+## How to Use:
+
+### To Register Admin:
+1. Go to `/admin-signup` or click "Register New Admin" from login page
+2. Fill in username, email, password
+3. Submit and then login with new credentials
+
+### To Register Police:
+1. Go to `/police-signup` or click "Register as Police Officer" from login page
+2. Fill in badge number, officer name, rank, station, email, password
+3. Submit and then login with badge number + password
+
+### Existing Default Credentials:
+- **Admin**: username: `admin`, password: `admin123`
+- **Police**: badge: `OFF001`, password: `police123`
+
+## Database:
+The tables already exist from running `backend/create_tables.js`. No additional MySQL setup needed - just ensure the backend server is running.
 

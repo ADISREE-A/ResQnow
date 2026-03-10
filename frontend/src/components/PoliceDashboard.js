@@ -102,8 +102,19 @@ const PoliceDashboard = ({ officerName, officerRank, viewMode = "dashboard", dar
   const fetchEvidenceWithAnalysis = () => {
     fetch("http://localhost:5000/api/evidence/with-analysis")
       .then(res => res.json())
-      .then(data => setEvidence(data))
-      .catch(err => console.error("Error fetching evidence:", err));
+      .then(data => {
+        // Handle case where API returns error object
+        if (Array.isArray(data)) {
+          setEvidence(data);
+        } else {
+          console.error("Error fetching evidence:", data);
+          setEvidence([]);
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching evidence:", err);
+        setEvidence([]);
+      });
   };
 
   /* ===============================

@@ -1,4 +1,8 @@
 const db = require("../config/db");
+const bcrypt = require("bcryptjs");
+
+// Salt rounds for bcrypt
+const SALT_ROUNDS = 10;
 
 // 🔹 Get All Active Officers
 const getAllOfficers = (callback) => {
@@ -18,27 +22,34 @@ const getOfficerById = (id, callback) => {
   db.query(sql, [id], callback);
 };
 
-// 🔹 Create New Officer
+// 🔹 Create New Officer (with bcrypt hashing)
 const createOfficer = (officer, callback) => {
-  const sql = `
-    INSERT INTO officers 
-    (badge_number, officer_name, \`rank\`, station, email, password_hash, is_active) 
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
-  
-  db.query(
-    sql,
-    [
-      officer.badge_number,
-      officer.officer_name,
-      officer.rank || null,
-      officer.station || null,
-      officer.email || null,
-      officer.password_hash,
-      true
-    ],
-    callback
-  );
+  // Hash the password before storing
+  bcrypt.hash(officer.password_hash, SALT_ROUNDS, (err, hash) => {
+    if (err) {
+      return callback(err);
+    }
+    
+    const sql = `
+      INSERT INTO officers 
+      (badge_number, officer_name, \`rank\`, station, email, password_hash, is_active) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    
+    db.query(
+      sql,
+      [
+        officer.badge_number,
+        officer.officer_name,
+        officer.rank || null,
+        officer.station || null,
+        officer.email || null,
+        hash,
+        true
+      ],
+      callback
+    );
+  });
 };
 
 // 🔹 Verify Officer Credentials

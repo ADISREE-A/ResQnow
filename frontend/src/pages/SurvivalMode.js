@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import LiveMap from "../components/LiveMap";
 import DangerZoneMap from "../components/DangerZoneMap";
 import EmergencyChat from "../components/EmergencyChat";
@@ -8,6 +8,7 @@ import HazardHistory from "../components/HazardHistory";
 import EvidenceRecorder from "../components/EvidenceRecorder";
 import AIChatbot from "../components/AIChatbot";
 import { speak } from "../utils/voice";
+import { getHighAccuracyLocation, watchLocation, clearWatch, calculateDistance } from "../utils/locationService";
 
 const SurvivalMode = ({ darkMode = true, toggleTheme }) => {
   const [panicActivated, setPanicActivated] = useState(false);
@@ -15,8 +16,18 @@ const SurvivalMode = ({ darkMode = true, toggleTheme }) => {
   const [showHistory, setShowHistory] = useState(false);
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
+  const [locationAccuracy, setLocationAccuracy] = useState(null);
+  const [locationSource, setLocationSource] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationError, setLocationError] = useState(null);
   const [nearbyDanger, setNearbyDanger] = useState(null);
   const [hazards, setHazards] = useState([]);
+  
+  // Use ref to store watchId for cleanup
+  const watchIdRef = useRef(null);
+  
+  // Generate a unique case ID for this survival session - used for all activities
+  const [sessionCaseId] = useState("CASE-" + Date.now());
 
   // Dynamic styles based on theme
   const theme = {
@@ -29,26 +40,67 @@ const SurvivalMode = ({ darkMode = true, toggleTheme }) => {
 
   /* Get user location and check for nearby dangers */
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    const fetchLocation = async () => {
+      if (!navigator.geolocation) {
+        setLocationError("Geolocation is not supported by your browser");
+        setLocationLoading(false);
+        return;
+      }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const loc = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-        setUserLocation(loc);
-        checkNearbyDangers(loc);
-      },
-      (err) => console.error("Location error:", err),
-      { enableHighAccuracy: true }
-    );
+      setLocationLoading(true);
+      setLocationError(null);
 
-    // Also fetch hazards
+      try {
+        const location = await getHighAccuracyLocation();
+        setUserLocation({ lat: location.lat, lng: location.lng });
+        setLocationAccuracy(location.accuracy);
+        setLocationSource(location.source);
+        checkNearbyDangers({ lat: location.lat, lng: location.lng });
+        
+        // Start watching position for real-time updates
+        watchIdRef.current = watchLocation(
+          (updatedLocation) => {
+            setUserLocation({ lat: updatedLocation.lat, lng: updatedLocation.lng });
+            setLocationAccuracy(updatedLocation.accuracy);
+            setLocationSource(updatedLocation.source);
+            checkNearbyDangers({ lat: updatedLocation.lat, lng: updatedLocation.lng });
+          },
+          (error) => console.warn("Location watch error:", error.message)
+        );
+      } catch (error) {
+        console.error("Location error:", error.message);
+        setLocationError(error.message);
+        
+        // Try IP-based fallback
+        try {
+          const { getLocationWithIPFallback } = await import("../utils/locationService");
+          const ipLocation = await getLocationWithIPFallback();
+          setUserLocation({ lat: ipLocation.lat, lng: ipLocation.lng });
+          setLocationSource(ipLocation.source);
+          setLocationAccuracy(ipLocation.accuracy);
+          checkNearbyDangers({ lat: ipLocation.lat, lng: ipLocation.lng });
+        } catch (ipError) {
+          console.error("IP fallback also failed:", ipError);
+        }
+      }
+
+      setLocationLoading(false);
+    };
+
+    fetchLocation();
+
+    // Fetch hazards
     fetch("http://localhost:5000/api/hazards/all")
       .then(res => res.json())
       .then(data => setHazards(data))
       .catch(err => console.error(err));
+
+    // Cleanup: stop watching location when component unmounts
+    return () => {
+      if (watchIdRef.current !== null) {
+        clearWatch(watchIdRef.current);
+      }
+    };
   }, []);
 
   /* Check if user is near any danger zone */
@@ -62,9 +114,6 @@ const SurvivalMode = ({ darkMode = true, toggleTheme }) => {
       if (latDiff < dangerThreshold && lngDiff < dangerThreshold) {
         if (hazard.risk_level === "Critical" || hazard.risk_level === "High") {
           setNearbyDanger(`Warning! ${hazard.risk_level} risk zone nearby: ${hazard.type}`);
-          
-          // Voice warning
-          speak(`Warning. You are approaching a ${hazard.risk_level.toLowerCase()} danger zone. ${hazard.type} reported in this area.`);
         }
       }
     });
@@ -103,54 +152,120 @@ const SurvivalMode = ({ darkMode = true, toggleTheme }) => {
     }
   };
 
-  /* 🎙 Panic Button Logic */
-  const handlePanic = () => {
+  /* 🎙 Panic Button Logic - Using improved location service */
+  const handlePanic = async () => {
     setPanicActivated(true);
 
     // Stop previous speech
     window.speechSynthesis.cancel();
 
-    const calmMessage =
-      "Take a deep breath. Emergency alert activated. Sharing your live location.";
-
-    speak(calmMessage);
+    // Simple voice message as requested
+    speak("Emergency alert activated, has been informed.");
 
     if (!navigator.geolocation) {
       speak("Location service is not available.");
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
+    // Speak to indicate we're getting location
+    speak("Getting your location...");
 
-        try {
-          await fetch("http://localhost:5000/api/emergency/create", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              latitude,
-              longitude,
-              type: currentHazard || "Panic"
-            })
-          });
+    try {
+      // Use high accuracy location with timeout
+      const location = await getHighAccuracyLocation();
+      const latitude = location.lat;
+      const longitude = location.lng;
+      
+      console.log(`Panic location: ${latitude}, ${longitude} (accuracy: ${location.accuracy}m, source: ${location.source})`);
+      
+      // Speak location accuracy feedback
+      if (location.accuracy < 20) {
+        speak(`Location found. Accuracy: excellent.`);
+      } else if (location.accuracy < 100) {
+        speak(`Location found. Accuracy: good.`);
+      } else {
+        speak(`Location found. Accuracy may be limited.`);
+      }
 
-          console.log("Emergency stored");
+      // Generate or get device ID for automatic authentication
+      let deviceId = localStorage.getItem("deviceId");
+      if (!deviceId) {
+        deviceId = "device-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("deviceId", deviceId);
+      }
+      
+      // Get optional user info (phone/email if user previously provided)
+      const userPhone = localStorage.getItem("userPhone") || null;
+      const userEmail = localStorage.getItem("userEmail") || null;
+      const username = userPhone || userEmail || "Anonymous User";
 
-          // Delay hazard instruction slightly
-          setTimeout(() => {
-            speak(getHazardGuidance(currentHazard));
-          }, 3000);
+      try {
+        // Send emergency with device ID for automatic authentication
+        await fetch("http://localhost:5000/api/emergency/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            case_id: sessionCaseId,
+            latitude,
+            longitude,
+            username: username,
+            deviceId: deviceId,
+            phone: userPhone,
+            email: userEmail,
+            type: currentHazard || "Panic Emergency",
+            description: `Panic button activated from device: ${deviceId}. Location: ${latitude}, ${longitude} (accuracy: ${Math.round(location.accuracy)}m, source: ${location.source}). Phone: ${userPhone || 'Not provided'}, Email: ${userEmail || 'Not provided'}. Current hazard: ${currentHazard || "None selected"}.`,
+            severity: "Critical",
+            location_accuracy: location.accuracy,
+            location_source: location.source
+          })
+        });
 
-        } catch (error) {
-          console.error("Server error:", error);
-          speak("Emergency triggered, but there was a server issue.");
-        }
-      },
-      () => speak("Unable to access location. Please enable GPS."),
-      { enableHighAccuracy: true }
-    );
+        console.log("Emergency sent to Police Dashboard with device ID:", deviceId);
+        speak("Emergency alert sent. Help is on the way.");
+
+      } catch (error) {
+        console.error("Server error:", error);
+        speak("Emergency triggered, but there was a server issue.");
+      }
+    } catch (error) {
+      console.error("Location error:", error.message);
+      speak("Unable to get location. Sending emergency without location.");
+      
+      // Still send emergency without location
+      let deviceId = localStorage.getItem("deviceId");
+      if (!deviceId) {
+        deviceId = "device-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("deviceId", deviceId);
+      }
+      
+      const userPhone = localStorage.getItem("userPhone") || null;
+      const userEmail = localStorage.getItem("userEmail") || null;
+      const username = userPhone || userEmail || "Anonymous User";
+
+      try {
+        await fetch("http://localhost:5000/api/emergency/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            case_id: sessionCaseId,
+            latitude: null,
+            longitude: null,
+            username: username,
+            deviceId: deviceId,
+            phone: userPhone,
+            email: userEmail,
+            type: currentHazard || "Panic Emergency",
+            description: `Panic button activated from device: ${deviceId}. Location unavailable. Phone: ${userPhone || 'Not provided'}, Email: ${userEmail || 'Not provided'}. Current hazard: ${currentHazard || "None selected"}.`,
+            severity: "Critical",
+            location_accuracy: null,
+            location_source: "unavailable"
+          })
+        });
+        speak("Emergency alert sent. Help is on the way.");
+      } catch (sendError) {
+        speak("Failed to send emergency. Please call emergency services directly.");
+      }
+    }
   };
 
   return (
@@ -194,10 +309,10 @@ const SurvivalMode = ({ darkMode = true, toggleTheme }) => {
       {/* MAIN SECTION */}
       <div style={styles.mainContent}>
         {/* MAP */}
-        <div style={styles.leftPanel}>
+      <div style={styles.leftPanel}>
           <LiveMap />
 
-          <EvidenceRecorder />
+          <EvidenceRecorder caseId={sessionCaseId} />
           {/* DANGER ZONE MAP SECTION */}
       <div style={{ marginTop: "20px" }}>
         <h2 style={{ marginBottom: "15px" }}>🔥 Danger Zones Nearby</h2>
@@ -223,7 +338,7 @@ const SurvivalMode = ({ darkMode = true, toggleTheme }) => {
           <EmergencyChat />
 
 {/* Proper Hazard Selection */}
-          <HazardReport onHazardSelect={(hazard) => setCurrentHazard(hazard)} />
+          <HazardReport caseId={sessionCaseId} onHazardSelect={(hazard) => setCurrentHazard(hazard)} />
 
           {/* Emergency Contacts
           <EmergencyContacts /> */}

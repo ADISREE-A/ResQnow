@@ -1,7 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const bcrypt = require("bcryptjs");
 const { getAllOfficers, verifyOfficer, getOfficerById, createOfficer, updateOfficer, deactivateOfficer } = require("../models/OfficerModel");
+const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
+
+// Salt rounds for bcrypt
+const SALT_ROUNDS = 10;
 
 /* ===============================
    🔹 GET All Officers
@@ -141,6 +146,80 @@ router.delete("/:id", (req, res) => {
     }
     res.json({ message: "Officer deactivated successfully" });
   });
+});
+
+/* ===============================
+   🔹 POST Register New Police Officer (Admin only)
+================================ */
+router.post("/register", verifyToken, verifyAdmin, async (req, res) => {
+  const { badge_number, officer_name, rank, station, email, password } = req.body;
+
+  // Validate required fields
+  if (!badge_number || !officer_name || !password) {
+    return res.status(400).json({ error: "Badge number, officer name, and password are required" });
+  }
+
+  // Validate password strength
+  if (password.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
+
+  // Validate email format if provided
+  if (email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+  }
+
+  try {
+    // Check if badge number already exists
+    const [existing] = await db.promise().query(
+      "SELECT id FROM officers WHERE badge_number = ? AND is_active = TRUE",
+      [badge_number]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ error: "Badge number already exists" });
+    }
+
+    // Check if email already exists (if provided)
+    if (email) {
+      const [existingEmail] = await db.promise().query(
+        "SELECT id FROM officers WHERE email = ? AND is_active = TRUE",
+        [email]
+      );
+
+      if (existingEmail.length > 0) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    // Insert new officer
+    const [result] = await db.promise().query(
+      `INSERT INTO officers (badge_number, officer_name, \`rank\`, station, email, password_hash, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
+      [badge_number, officer_name, rank || null, station || null, email || null, hashedPassword]
+    );
+
+    res.status(201).json({
+      message: "Police officer registered successfully",
+      officer: {
+        id: result.insertId,
+        badge_number,
+        officer_name,
+        rank: rank || null,
+        station: station || null,
+        email: email || null
+      }
+    });
+  } catch (err) {
+    console.error("Police registration error:", err);
+    res.status(500).json({ error: "Failed to register police officer" });
+  }
 });
 
 module.exports = router;

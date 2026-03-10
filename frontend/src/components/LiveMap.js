@@ -24,110 +24,85 @@ function RecenterMap({ position }) {
   return null;
 }
 
-/* 🛣️ Routing Control Component with improved error handling */
+/* 🛣️ Routing Control Component - Using OSRM API directly */
 function RoutingMachine({ start, end, onRouteReady, onRouteError }) {
   const map = useMap();
-  const routingControlRef = useRef(null);
+  const routeLineRef = useRef(null);
 
   useEffect(() => {
-    // Add null check for map
-    if (!start || !end || !map || !map.getContainer()) return;
+    if (!start || !end || !map) return;
 
-    // Wait for map to be ready
-    setTimeout(() => {
+    const fetchRoute = async () => {
       try {
-        // Remove existing routing control safely
-        try {
-          if (routingControlRef.current) {
-            try {
-              map.removeControl(routingControlRef.current);
-            } catch (e) {
-              // Control might already be removed, ignore error
-              console.warn("Error removing routing control:", e);
-            }
-          }
-        } catch (e) {
-          console.warn("Error accessing map for cleanup:", e);
+        // Use OSRM API directly to get route
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`
+        );
+        
+        if (!response.ok) {
+          throw new Error("Route not found");
         }
-
-        // Create new routing control with error handling
-        const routingControl = L.Routing.control({
-          waypoints: [
-            L.latLng(start[0], start[1]),
-            L.latLng(end[0], end[1])
-          ],
-          routeWhileDragging: false,
-          showAlternatives: false,
-          lineOptions: {
-            styles: [
-              { color: '#4ecca3', opacity: 0.8, weight: 6 }
-            ]
-          },
-          createMarker: function() { return null; },
-          addWaypoints: false,
-          draggableWaypoints: false,
-          fitSelectedRoutes: true,
-          showInstructions: false,
-          // Hide the routing container to avoid display issues
-          container: null
-        });
-
-        try {
-          routingControl.addTo(map);
-          routingControlRef.current = routingControl;
-        } catch (e) {
-          console.error("Error adding routing control:", e);
-          if (onRouteError) {
-            onRouteError(new Error("Unable to calculate route"));
+        
+        const data = await response.json();
+        
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const distanceKm = (route.distance / 1000).toFixed(1);
+          const timeMinutes = Math.round(route.duration / 60);
+          
+          // Get geometry coordinates
+          const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+          
+          // Draw the route line on the map
+          if (routeLineRef.current) {
+            map.removeLayer(routeLineRef.current);
           }
-          return;
+          
+          routeLineRef.current = L.polyline(coordinates, {
+            color: '#4ecca3',
+            weight: 6,
+            opacity: 0.9
+          }).addTo(map);
+          
+          // Fit map to show the whole route
+          map.fitBounds(routeLineRef.current.getBounds(), { padding: [50, 50] });
+          
+          // Get instructions if available
+          const instructions = route.legs[0].steps.map(step => ({
+            type: step.maneuver ? step.maneuver.type : 'Straight',
+            modifier: step.maneuver ? step.maneuver.modifier : null,
+            text: step.name || step.maneuver?.instruction || "Continue",
+            distance: step.distance,
+            duration: step.duration
+          }));
+          
+          if (onRouteReady) {
+            onRouteReady({
+              distance: distanceKm,
+              time: timeMinutes,
+              instructions: instructions,
+              geometry: route.geometry
+            });
+          }
+        } else {
+          throw new Error("No route found");
         }
-
-        // Listen for route calculation
-        routingControl.on('routesfound', function(e) {
-          const routes = e.routes;
-          if (routes && routes.length > 0) {
-            const summary = routes[0].summary;
-            const distanceKm = (summary.totalDistance / 1000).toFixed(1);
-            const timeMinutes = Math.round(summary.totalTime / 60);
-            
-            if (onRouteReady) {
-              onRouteReady({
-                distance: distanceKm,
-                time: timeMinutes,
-                instructions: routes[0].instructions || []
-              });
-            }
-          }
-        });
-
-        routingControl.on('routingerror', function(e) {
-          console.error('Routing error:', e);
-          if (onRouteError) {
-            onRouteError(new Error("Route calculation failed"));
-          }
-        });
-
       } catch (e) {
-        console.error("Error in routing setup:", e);
+        console.error("Route error:", e);
         if (onRouteError) {
           onRouteError(e);
         }
       }
-    }, 500); // Small delay to ensure map is fully ready
+    };
 
+    fetchRoute();
+
+    // Cleanup
     return () => {
-      // Safely remove control on cleanup
-      try {
-        if (routingControlRef.current && map && map.getContainer()) {
-          try {
-            map.removeControl(routingControlRef.current);
-          } catch (e) {
-            // Ignore cleanup errors
-          }
-        }
-      } catch (e) {
-        // Ignore cleanup errors
+      if (routeLineRef.current && map) {
+        try {
+          map.removeLayer(routeLineRef.current);
+        } catch (e) {}
       }
     };
   }, [start, end, map, onRouteReady, onRouteError]);
